@@ -1,3 +1,57 @@
 package main
 
-func main() {}
+import (
+	"fmt"
+	"time"
+
+	storage "github.com/MPoline/alert_service_yp/cmd/agent/storage"
+)
+
+var (
+	neсMetrics = []string{
+		"Alloc", "BuckHashSys", "Frees", "GCCPUFraction",
+		"GCSys", "HeapAlloc", "HeapIdle", "HeapInuse",
+		"HeapObjects", "HeapReleased", "HeapSys", "LastGC",
+		"Lookups", "MCacheInuse", "MCacheSys", "MSpanInuse",
+		"MSpanSys", "Mallocs", "NextGC", "NumForcedGC",
+		"NumGC", "OtherSys", "PauseTotalNs", "StackInuse",
+		"StackSys", "Sys", "TotalAlloc",
+	}
+)
+
+func main() {
+	pollInterval := 2 * time.Second
+	reportInterval := 10 * time.Second
+
+	memStorage := storage.NewMemStorage()
+
+	// Цикл обновления метрик
+	go func() {
+		for {
+			storage.GetMetrics(memStorage, neсMetrics)
+
+			fmt.Println("Gauges:")
+			for key, value := range memStorage.Gauges {
+				fmt.Printf("%s: %v\n", key, value)
+			}
+
+			fmt.Println("Counters:")
+			for key, value := range memStorage.Counters {
+				fmt.Printf("%s: %v\n", key, value)
+			}
+
+			time.Sleep(pollInterval)
+		}
+	}()
+
+	// Цикл отправки метрик
+	go func() {
+		for {
+			storage.CreateMetricsURL(memStorage)
+			time.Sleep(reportInterval)
+		}
+	}()
+
+	// Бесконечный цикл для работы программы
+	select {}
+}
