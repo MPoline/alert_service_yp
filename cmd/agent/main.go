@@ -47,7 +47,8 @@ func main() {
 	// Цикл отправки метрик
 	go func() {
 		for {
-			storage.CreateMetricsURL(memStorage)
+			URLStorage := storage.CreateURL(memStorage)
+			storage.SendMetrics(URLStorage)
 			time.Sleep(reportInterval)
 		}
 	}()
