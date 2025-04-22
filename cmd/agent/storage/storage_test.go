@@ -56,8 +56,8 @@ func TestCreateURL(t *testing.T) {
 
 			for _, url := range urls {
 				found := false
-				for _, wantUrl := range test.want {
-					if wantUrl == url {
+				for _, wantURL := range test.want {
+					if wantURL == url {
 						found = true
 					}
 				}
