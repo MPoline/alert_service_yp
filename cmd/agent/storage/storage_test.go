@@ -42,17 +42,17 @@ func TestCreateURL(t *testing.T) {
 	}
 	tests := []struct {
 		name       string
-		memStorage MemStorage
+		memStorage *MemStorage
 		want       []string
 	}{
 		{
-			name: "Test create URL", memStorage: memStorage1, want: []string{"http://localhost:8080/update/gauge/TestGauge/0.123000", "http://localhost:8080/update/counter/TestCounter/1"},
+			name: "Test create URL", memStorage: &memStorage1, want: []string{"http://localhost:8080/update/gauge/TestGauge/0.123000", "http://localhost:8080/update/counter/TestCounter/1"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			urls := CreateURL(&test.memStorage)
+			urls := CreateURL(test.memStorage)
 
 			for _, url := range urls {
 				found := false
