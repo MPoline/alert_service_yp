@@ -30,8 +30,8 @@ func GetMetrics(MemStorage *MemStorage, neсMetrics []string) {
 		fieldName := MemStatType.Field(i).Name
 		fieldValue := MemStatValue.Field(i)
 
-		for i := range neсMetrics {
-			if fieldName == neсMetrics[i] {
+		for _, metricName := range neсMetrics {
+			if fieldName == metricName {
 				if value, ok := fieldValue.Interface().(float64); ok {
 					MemStorage.Gauges[fieldName] = value
 				} else if intValue, ok := fieldValue.Interface().(int64); ok {
@@ -49,7 +49,7 @@ func GetMetrics(MemStorage *MemStorage, neсMetrics []string) {
 	MemStorage.Gauges["RandomValue"] = rand.Float64()
 }
 
-func CreateMetricsURL(MemStorage *MemStorage) {
+func CreateURL(MemStorage *MemStorage) (URLStorage []string) {
 	MemStorage.mu.Lock()
 	defer MemStorage.mu.Unlock()
 
@@ -57,32 +57,35 @@ func CreateMetricsURL(MemStorage *MemStorage) {
 
 	for key, value := range MemStorage.Gauges {
 		url := fmt.Sprintf("%s/gauge/%s/%f", serverURL, key, value)
-		sendMetrics(url)
+		URLStorage = append(URLStorage, url)
 	}
 
 	for key, value := range MemStorage.Counters {
 		url := fmt.Sprintf("%s/counter/%s/%d", serverURL, key, value)
-		sendMetrics(url)
+		URLStorage = append(URLStorage, url)
 	}
+	return
 }
 
-func sendMetrics(url string) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte("")))
-	if err != nil {
-		fmt.Println("Error creating request:", err)
-		return
-	}
-	req.Header.Set("Content-Type", "text/plain")
+func SendMetrics(URLStorage []string) {
+	for _, URL := range URLStorage {
+		req, err := http.NewRequest("POST", URL, bytes.NewBuffer([]byte("")))
+		if err != nil {
+			fmt.Println("Error creating request:", err)
+			return
+		}
+		req.Header.Set("Content-Type", "text/plain")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending request:", err)
-		return
-	}
-	defer resp.Body.Close()
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Error sending request:", err)
+			return
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Error response:", resp.Status)
+		if resp.StatusCode != http.StatusOK {
+			fmt.Println("Error response:", resp.Status)
+		}
 	}
 }
