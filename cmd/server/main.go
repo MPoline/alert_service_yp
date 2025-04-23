@@ -110,12 +110,12 @@ func getMetric(c *gin.Context) {
 	switch metricType {
 	case "gauge":
 		if val, ok := memStorage.GetGauge(metricName); ok {
-			value = fmt.Sprintf("%f", val)
+			value = strconv.FormatFloat(val, 'f', -1, 64)
 			found = true
 		}
 	case "counter":
 		if val, ok := memStorage.GetCounter(metricName); ok {
-			value = fmt.Sprintf("%d", val)
+			value = strconv.FormatInt(val, 64)
 			found = true
 		}
 	default:
