@@ -1,12 +1,12 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand/v2"
-	"net/http"
 	"reflect"
 	"runtime"
+
+	"github.com/go-resty/resty/v2"
 )
 
 func NewMemStorage() *MemStorage {
@@ -68,24 +68,17 @@ func CreateURL(MemStorage *MemStorage) (URLStorage []string) {
 }
 
 func SendMetrics(URLStorage []string) {
-	for _, URL := range URLStorage {
-		req, err := http.NewRequest("POST", URL, bytes.NewBuffer([]byte("")))
-		if err != nil {
-			fmt.Println("Error creating request:", err)
-			return
-		}
-		req.Header.Set("Content-Type", "text/plain")
+	client := resty.New()
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
+	for _, URL := range URLStorage {
+		resp, err := client.R().SetHeader("Content-Type", "text/plain").Post(URL)
 		if err != nil {
 			fmt.Println("Error sending request:", err)
 			return
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			fmt.Println("Error response:", resp.Status)
+		if resp.IsError() {
+			fmt.Println("Error response:", resp.Status())
 		}
 	}
 }

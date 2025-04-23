@@ -97,9 +97,89 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func getMetric(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("URL: ", r.URL.Path)
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) != 4 || parts[1] != "value" {
+		http.Error(w, "Invalid URL format", http.StatusNotFound)
+		return
+	}
+
+	metricType := parts[2]
+	metricName := parts[3]
+
+	if metricName == "" {
+		http.Error(w, "Metric name is required", http.StatusNotFound)
+		return
+	}
+
+	var value string
+	var found bool
+	switch metricType {
+	case "gauge":
+		if val, ok := memStorage.GetGauge(metricName); ok {
+			value = fmt.Sprintf("%f", val)
+			found = true
+		}
+	case "counter":
+		if val, ok := memStorage.GetCounter(metricName); ok {
+			value = fmt.Sprintf("%d", val)
+			found = true
+		}
+	default:
+		http.Error(w, "Unknown metric type", http.StatusBadRequest)
+		return
+	}
+
+	if !found {
+		http.Error(w, "Metric not found", http.StatusNotFound)
+		return
+	}
+
+	w.Write([]byte(value))
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/plain")
+}
+
+func getAllMetrics(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("URL: ", r.URL.Path)
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<html><body><h1>Metrics</h1><ul>")
+
+	for metricName, metricValue := range memStorage.Gauges {
+		sb.WriteString(fmt.Sprintf("<li> Gauge metrics: %s - %f</li>", metricName, metricValue))
+	}
+
+	for metricName, metricValue := range memStorage.Counters {
+		sb.WriteString(fmt.Sprintf("<li> Counter metrics: %s - %d</li>", metricName, metricValue))
+	}
+
+	sb.WriteString("</ul></body></html>")
+
+	w.Write([]byte(sb.String()))
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/html")
+}
+
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/update/`, updateMetric)
+	mux.HandleFunc(`/value/`, getMetric)
+	mux.HandleFunc(`/`, getAllMetrics)
 
 	fmt.Println("Starting server on :8080")
 
