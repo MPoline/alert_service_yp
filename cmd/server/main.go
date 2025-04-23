@@ -152,6 +152,11 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("URL: ", r.URL.Path)
 
+	if len(r.URL.Path) != 1 {
+		http.Error(w, "Method not found", http.StatusNotFound)
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
 		return
