@@ -163,7 +163,7 @@ func main() {
 	router.GET("/value/:type/:name", getMetric)
 	router.POST("/update/:type/:name/:value", updateMetric)
 
-	fmt.Println("Starting server on :8080")
-
-	router.Run(":8080")
+	parseFlags()
+	fmt.Println("Running server on", flagRunAddr)
+	router.Run(flagRunAddr)
 }

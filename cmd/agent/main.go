@@ -20,8 +20,9 @@ var (
 )
 
 func main() {
-	pollInterval := 2 * time.Second
-	reportInterval := 10 * time.Second
+	parseFlags()
+	pollInterval := time.Duration(flagPollInterval) * time.Second
+	reportInterval := time.Duration(flagReportInterval) * time.Second
 
 	memStorage := storage.NewMemStorage()
 
