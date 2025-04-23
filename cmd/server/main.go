@@ -30,27 +30,28 @@ var memStorage = storage.NewMemStorage()
 
 func updateMetric(c *gin.Context) {
 
-	fmt.Println("URL: ", c.Request.URL)
-
 	if c.GetHeader("Content-Type") != "text/plain" {
 		c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: text/plain are allowed!"})
 		return
 	}
 
-	parts := strings.Split(c.Request.URL.String(), "/")
-	if len(parts) != 5 || parts[1] != "update" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid URL format"})
+	metricType := c.Param("type")
+	metricName := c.Param("name")
+	metricValue := c.Param("value")
+
+	if metricType == "" {
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric type is required"})
 		return
 	}
-
-	metricType := parts[2]
-	metricName := parts[3]
-	metricValue := parts[4]
-
 	if metricName == "" {
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
 		return
 	}
+	if metricValue == "" {
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric value is required"})
+		return
+	}
+
 	contentType := c.GetHeader("Content-Type")
 	contentLength := c.GetHeader("Content-Length")
 	date := time.Now().UTC().Format(http.TimeFormat)
@@ -96,16 +97,8 @@ func updateMetric(c *gin.Context) {
 
 func getMetric(c *gin.Context) {
 
-	fmt.Println("URL: ", c.Request.URL)
-
-	parts := strings.Split(c.Request.URL.String(), "/")
-	if len(parts) != 4 || parts[1] != "value" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid URL format"})
-		return
-	}
-
-	metricType := parts[2]
-	metricName := parts[3]
+	metricType := c.Param("type")
+	metricName := c.Param("name")
 
 	if metricName == "" {
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
@@ -141,8 +134,6 @@ func getMetric(c *gin.Context) {
 
 func getAllMetrics(c *gin.Context) {
 
-	fmt.Println("URL: ", c.Request.URL)
-
 	if len(c.Request.URL.String()) != 1 {
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Method not found"})
 		return
@@ -169,8 +160,8 @@ func main() {
 	router := gin.Default()
 
 	router.GET("/", getAllMetrics)
-	router.GET("/value/", getMetric)
-	router.POST("/update/", updateMetric)
+	router.GET("/value/:type/:name", getMetric)
+	router.POST("/update/:type/:name/:value", updateMetric)
 
 	fmt.Println("Starting server on :8080")
 
