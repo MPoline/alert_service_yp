@@ -30,10 +30,10 @@ var memStorage = storage.NewMemStorage()
 
 func updateMetric(c *gin.Context) {
 
-	if c.GetHeader("Content-Type") != "text/plain" {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: text/plain are allowed!"})
-		return
-	}
+	// if c.GetHeader("Content-Type") != "text/plain" {
+	// 	c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: text/plain are allowed!"})
+	// 	return
+	// }
 
 	metricType := c.Param("type")
 	metricName := c.Param("name")
