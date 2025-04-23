@@ -7,6 +7,7 @@ import (
 	"time"
 
 	storage "github.com/MPoline/alert_service_yp/cmd/server/memstorage"
+	"github.com/gin-gonic/gin"
 
 	"net/http"
 )
@@ -27,22 +28,18 @@ var memStorage = storage.NewMemStorage()
 // 	})
 // }
 
-func updateMetric(w http.ResponseWriter, r *http.Request) {
+func updateMetric(c *gin.Context) {
 
-	fmt.Println("URL: ", r.URL.Path)
+	fmt.Println("URL: ", c.Request.URL)
 
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST requests are allowed!", http.StatusMethodNotAllowed)
-		return
-	}
-	if r.Header.Get("Content-Type") != "text/plain" {
-		http.Error(w, "Only Content-Type:text/plain are allowed!", http.StatusUnsupportedMediaType)
+	if c.GetHeader("Content-Type") != "text/plain" {
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: text/plain are allowed!"})
 		return
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
+	parts := strings.Split(c.Request.URL.String(), "/")
 	if len(parts) != 5 || parts[1] != "update" {
-		http.Error(w, "Invalid URL format", http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid URL format"})
 		return
 	}
 
@@ -51,18 +48,18 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 	metricValue := parts[4]
 
 	if metricName == "" {
-		http.Error(w, "Metric name is required", http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
 		return
 	}
-	contentType := r.Header.Get("Content-Type")
-	contentLength := r.Header.Get("Content-Length")
+	contentType := c.GetHeader("Content-Type")
+	contentLength := c.GetHeader("Content-Length")
 	date := time.Now().UTC().Format(http.TimeFormat)
 
 	switch metricType {
 	case "gauge":
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
-			http.Error(w, "Invalid gauge value", http.StatusBadRequest)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid gauge value"})
 			return
 		}
 		memStorage.SetGauge(metricName, value)
@@ -70,15 +67,15 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("newValue: ", newValue)
 		fmt.Println("checkValue: ", checkValue)
 
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Date", date)
-		w.Header().Set("Content-Length", contentLength)
-		w.Header().Set("Content-Type", contentType)
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Length", contentLength)
+		c.Header("Date", date)
+		c.Status(http.StatusOK)
 
 	case "counter":
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid counter value", http.StatusBadRequest)
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid counter value"})
 			return
 		}
 		memStorage.IncrementCounter(metricName, value)
@@ -86,29 +83,24 @@ func updateMetric(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("newValue: ", newValue)
 		fmt.Println("checkValue: ", checkValue)
 
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Date", date)
-		w.Header().Set("Content-Length", contentLength)
-		w.Header().Set("Content-Type", contentType)
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Length", contentLength)
+		c.Header("Date", date)
+		c.Status(http.StatusOK)
 
 	default:
-		http.Error(w, "Unknown metric type", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
 	}
 
 }
 
-func getMetric(w http.ResponseWriter, r *http.Request) {
+func getMetric(c *gin.Context) {
 
-	fmt.Println("URL: ", r.URL.Path)
+	fmt.Println("URL: ", c.Request.URL)
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
-		return
-	}
-
-	parts := strings.Split(r.URL.Path, "/")
+	parts := strings.Split(c.Request.URL.String(), "/")
 	if len(parts) != 4 || parts[1] != "value" {
-		http.Error(w, "Invalid URL format", http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid URL format"})
 		return
 	}
 
@@ -116,7 +108,7 @@ func getMetric(w http.ResponseWriter, r *http.Request) {
 	metricName := parts[3]
 
 	if metricName == "" {
-		http.Error(w, "Metric name is required", http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
 		return
 	}
 
@@ -134,31 +126,25 @@ func getMetric(w http.ResponseWriter, r *http.Request) {
 			found = true
 		}
 	default:
-		http.Error(w, "Unknown metric type", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
 		return
 	}
 
 	if !found {
-		http.Error(w, "Metric not found", http.StatusNotFound)
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric not found"})
 		return
 	}
 
-	w.Write([]byte(value))
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "text/plain")
+	c.Header("Content-Type", "text/plain")
+	c.String(http.StatusOK, value)
 }
 
-func getAllMetrics(w http.ResponseWriter, r *http.Request) {
+func getAllMetrics(c *gin.Context) {
 
-	fmt.Println("URL: ", r.URL.Path)
+	fmt.Println("URL: ", c.Request.URL)
 
-	if len(r.URL.Path) != 1 {
-		http.Error(w, "Method not found", http.StatusNotFound)
-		return
-	}
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
+	if len(c.Request.URL.String()) != 1 {
+		c.JSON(http.StatusNotFound, gin.H{"Error": "Method not found"})
 		return
 	}
 
@@ -175,21 +161,18 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	sb.WriteString("</ul></body></html>")
 
-	w.Write([]byte(sb.String()))
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "text/html")
+	c.Header("Content-Type", "text/html")
+	c.String(http.StatusOK, sb.String())
 }
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, updateMetric)
-	mux.HandleFunc(`/value/`, getMetric)
-	mux.HandleFunc(`/`, getAllMetrics)
+	router := gin.Default()
+
+	router.GET("/", getAllMetrics)
+	router.GET("/value/", getMetric)
+	router.POST("/update/", updateMetric)
 
 	fmt.Println("Starting server on :8080")
 
-	err := http.ListenAndServe(":8080", mux)
-	if err != nil {
-		panic(err)
-	}
+	router.Run(":8080")
 }
