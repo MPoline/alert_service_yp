@@ -115,7 +115,7 @@ func getMetric(c *gin.Context) {
 		}
 	case "counter":
 		if val, ok := memStorage.GetCounter(metricName); ok {
-			value = strconv.FormatInt(val, 64)
+			value = strconv.FormatInt(val, 10)
 			found = true
 		}
 	default:
