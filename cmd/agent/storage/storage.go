@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"math/rand/v2"
+	"net/http/httputil"
 	"reflect"
 	"runtime"
 	"time"
@@ -75,12 +76,18 @@ func SendMetrics(URLStorage []string) {
 	for _, URL := range URLStorage {
 		nAttempts := 0
 		for nAttempts < nRetries {
-			resp, err := client.R().SetHeader("Content-Type", "text/plain").Post(URL)
+			req := client.R().SetHeader("Content-Type", "text/plain")
+			req.Body = ""
+			req.URL = URL
+			req.Method = "POST"
+			resp, err := req.Send()
 
 			if err != nil {
 				fmt.Println("Error sending request:", err)
 				nAttempts++
 				time.Sleep(2 * time.Second)
+				dump, _ := httputil.DumpRequest(req.RawRequest, true)
+				fmt.Printf("Оригинальный запрос:\n\n%s", dump)
 				continue
 			}
 			if resp.IsError() {
