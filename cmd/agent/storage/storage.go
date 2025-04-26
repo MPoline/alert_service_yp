@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"runtime"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -69,16 +70,26 @@ func CreateURL(MemStorage *MemStorage) (URLStorage []string) {
 
 func SendMetrics(URLStorage []string) {
 	client := resty.New()
+	nRetries := 3
 
 	for _, URL := range URLStorage {
-		resp, err := client.R().SetHeader("Content-Type", "text/plain").Post(URL)
-		if err != nil {
-			fmt.Println("Error sending request:", err)
-			return
-		}
+		nAttempts := 0
+		for nAttempts < nRetries {
+			resp, err := client.R().SetHeader("Content-Type", "text/plain").Post(URL)
 
-		if resp.IsError() {
-			fmt.Println("Error response:", resp.Status())
+			if err != nil {
+				fmt.Println("Error sending request:", err)
+				nAttempts++
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			if resp.IsError() {
+				fmt.Println("Error response:", resp.Status())
+			}
+			break
+		}
+		if nAttempts == nRetries {
+			fmt.Println("All retries failed for URL:", URL)
 		}
 	}
 }
