@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	f "github.com/MPoline/alert_service_yp/internal/agent/flags"
-	storage "github.com/MPoline/alert_service_yp/internal/agent/storage"
+	f "github.com/MPoline/alert_service_yp/internal/agent"
+	storage "github.com/MPoline/alert_service_yp/internal/storage"
 )
 
 var (

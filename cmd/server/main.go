@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	f "github.com/MPoline/alert_service_yp/internal/server/flags"
-	storage "github.com/MPoline/alert_service_yp/internal/server/memstorage"
+	f "github.com/MPoline/alert_service_yp/internal/server"
+	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 
 	"net/http"
