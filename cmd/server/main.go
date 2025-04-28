@@ -6,7 +6,8 @@ import (
 	"strings"
 	"time"
 
-	storage "github.com/MPoline/alert_service_yp/cmd/server/memstorage"
+	f "github.com/MPoline/alert_service_yp/internal/server/flags"
+	storage "github.com/MPoline/alert_service_yp/internal/server/memstorage"
 	"github.com/gin-gonic/gin"
 
 	"net/http"
@@ -164,7 +165,7 @@ func main() {
 	router.GET("/value/:type/:name", getMetric)
 	router.POST("/update/:type/:name/:value", updateMetric)
 
-	parseFlags()
-	fmt.Println("Running server on", flagRunAddr)
-	router.Run(flagRunAddr)
+	f.ParseFlags()
+	fmt.Println("Running server on", f.FlagRunAddr)
+	router.Run(f.FlagRunAddr)
 }

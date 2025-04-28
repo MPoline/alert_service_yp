@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	storage "github.com/MPoline/alert_service_yp/cmd/agent/storage"
+	f "github.com/MPoline/alert_service_yp/internal/agent/flags"
+	storage "github.com/MPoline/alert_service_yp/internal/agent/storage"
 )
 
 var (
@@ -20,9 +21,9 @@ var (
 )
 
 func main() {
-	parseFlags()
-	pollInterval := time.Duration(flagPollInterval) * time.Second
-	reportInterval := time.Duration(flagReportInterval) * time.Second
+	f.ParseFlags()
+	pollInterval := time.Duration(f.FlagPollInterval) * time.Second
+	reportInterval := time.Duration(f.FlagReportInterval) * time.Second
 
 	memStorage := storage.NewMemStorage()
 
