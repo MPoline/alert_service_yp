@@ -25,6 +25,11 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
+var (
+	serverURL = "http://localhost:8080/update"
+	nRetries  = 3
+)
+
 //SERVER
 //----------------------------------------------
 
@@ -94,8 +99,6 @@ func CreateURL(MemStorage *MemStorage) (URLStorage []string) {
 	MemStorage.mu.Lock()
 	defer MemStorage.mu.Unlock()
 
-	serverURL := "http://localhost:8080/update"
-
 	for key, value := range MemStorage.Gauges {
 		url := fmt.Sprintf("%s/gauge/%s/%f", serverURL, key, value)
 		URLStorage = append(URLStorage, url)
@@ -110,7 +113,6 @@ func CreateURL(MemStorage *MemStorage) (URLStorage []string) {
 
 func SendMetrics(URLStorage []string) {
 	client := resty.New()
-	nRetries := 3
 
 	for _, URL := range URLStorage {
 		nAttempts := 0

@@ -13,7 +13,11 @@ import (
 	"net/http"
 )
 
-var memStorage = storage.NewMemStorage()
+var (
+	value      string
+	found      bool
+	memStorage = storage.NewMemStorage()
+)
 
 // func middleware(next http.Handler) http.Handler {
 // 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -106,8 +110,6 @@ func getMetric(c *gin.Context) {
 		return
 	}
 
-	var value string
-	var found bool
 	switch metricType {
 	case "gauge":
 		if val, ok := memStorage.GetGauge(metricName); ok {

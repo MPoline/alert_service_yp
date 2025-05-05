@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	f "github.com/MPoline/alert_service_yp/internal/agent"
@@ -18,18 +19,23 @@ var (
 		"NumGC", "OtherSys", "PauseTotalNs", "StackInuse",
 		"StackSys", "Sys", "TotalAlloc",
 	}
+	memStorage = storage.NewMemStorage()
+	wg         sync.WaitGroup
 )
 
 func main() {
 	f.ParseFlags()
 	pollInterval := time.Duration(f.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(f.FlagReportInterval) * time.Second
+	wg.Add(2)
 
-	memStorage := storage.NewMemStorage()
-
-	// Цикл обновления метрик
+	// Сбор метрик
 	go func() {
-		for {
+		defer wg.Done()
+		ticker := time.NewTicker(pollInterval)
+		defer ticker.Stop()
+
+		for range ticker.C {
 			storage.GetMetrics(memStorage, neсMetrics)
 
 			fmt.Println("Gauges:")
@@ -41,20 +47,20 @@ func main() {
 			for key, value := range memStorage.Counters {
 				fmt.Printf("%s: %v\n", key, value)
 			}
-
-			time.Sleep(pollInterval)
 		}
 	}()
 
-	// Цикл отправки метрик
+	// Отправка метрик
 	go func() {
-		for {
+		defer wg.Done()
+		ticker := time.NewTicker(reportInterval)
+		defer ticker.Stop()
+
+		for range ticker.C {
 			URLStorage := storage.CreateURL(memStorage)
 			storage.SendMetrics(URLStorage)
-			time.Sleep(reportInterval)
 		}
 	}()
 
-	// Бесконечный цикл для работы программы
-	select {}
+	wg.Wait()
 }
