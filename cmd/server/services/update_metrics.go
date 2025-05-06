@@ -42,9 +42,6 @@ func UpdateMetric(s *storage.MemStorage, c *gin.Context) {
 			return
 		}
 		s.SetGauge(metricName, value)
-		newValue, checkValue := s.GetGauge(metricName)
-		fmt.Println("newValue: ", newValue)
-		fmt.Println("checkValue: ", checkValue)
 	case "counter":
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
@@ -52,12 +49,11 @@ func UpdateMetric(s *storage.MemStorage, c *gin.Context) {
 			return
 		}
 		s.IncrementCounter(metricName, value)
-		newValue, checkValue := s.GetCounter(metricName)
-		fmt.Println("newValue: ", newValue)
-		fmt.Println("checkValue: ", checkValue)
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
 	}
+
+	fmt.Println(s)
 	
 	c.Header("Content-Type", c.GetHeader("Content-Type"))
 	c.Header("Content-Length", c.GetHeader("Content-Length"))

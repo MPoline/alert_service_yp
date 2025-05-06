@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -44,4 +45,21 @@ func (s *MemStorage) IncrementCounter(name string, value int64) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 	s.Counters[name] += value
+}
+
+func (s *MemStorage) String() string {
+    s.Mu.Lock()
+    defer s.Mu.Unlock()
+
+    var gaugesStr, countersStr string
+
+    for k, v := range s.Gauges {
+        gaugesStr += fmt.Sprintf("%v=%v ", k, v)
+    }
+
+    for k, v := range s.Counters {
+        countersStr += fmt.Sprintf("%v=%d ", k, v)
+    }
+
+    return fmt.Sprintf("Gauges(%v), Counters(%v)", gaugesStr, countersStr)
 }
