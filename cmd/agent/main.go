@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	services "github.com/MPoline/alert_service_yp/cmd/agent/services"
 	f "github.com/MPoline/alert_service_yp/internal/agent"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 )
@@ -36,7 +37,7 @@ func main() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			storage.GetMetrics(memStorage, neсMetrics)
+			services.GetMetrics(memStorage, neсMetrics)
 
 			fmt.Println("Gauges:")
 			for key, value := range memStorage.Gauges {
@@ -57,8 +58,8 @@ func main() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			URLStorage := storage.CreateURL(memStorage)
-			storage.SendMetrics(URLStorage)
+			URLStorage := services.CreateURLS(memStorage)
+			services.SendMetrics(memStorage, URLStorage)
 		}
 	}()
 

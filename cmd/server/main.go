@@ -2,20 +2,14 @@ package main
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
 
-	f "github.com/MPoline/alert_service_yp/internal/server"
+	services "github.com/MPoline/alert_service_yp/cmd/server/services"
+	flags "github.com/MPoline/alert_service_yp/internal/server"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
-
-	"net/http"
 )
 
 var (
-	value      string
-	found      bool
 	memStorage = storage.NewMemStorage()
 )
 
@@ -33,141 +27,27 @@ var (
 // 	})
 // }
 
-func updateMetric(c *gin.Context) {
-
-	// if c.GetHeader("Content-Type") != "text/plain" {
-	// 	c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: text/plain are allowed!"})
-	// 	return
-	// }
-
-	metricType := c.Param("type")
-	metricName := c.Param("name")
-	metricValue := c.Param("value")
-
-	if metricType == "" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric type is required"})
-		return
-	}
-	if metricName == "" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
-		return
-	}
-	if metricValue == "" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric value is required"})
-		return
-	}
-
-	contentType := c.GetHeader("Content-Type")
-	contentLength := c.GetHeader("Content-Length")
-	date := time.Now().UTC().Format(http.TimeFormat)
-
-	switch metricType {
-	case "gauge":
-		value, err := strconv.ParseFloat(metricValue, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid gauge value"})
-			return
-		}
-		memStorage.SetGauge(metricName, value)
-		newValue, checkValue := memStorage.GetGauge(metricName)
-		fmt.Println("newValue: ", newValue)
-		fmt.Println("checkValue: ", checkValue)
-
-		c.Header("Content-Type", contentType)
-		c.Header("Content-Length", contentLength)
-		c.Header("Date", date)
-		c.Status(http.StatusOK)
-
-	case "counter":
-		value, err := strconv.ParseInt(metricValue, 10, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid counter value"})
-			return
-		}
-		memStorage.IncrementCounter(metricName, value)
-		newValue, checkValue := memStorage.GetCounter(metricName)
-		fmt.Println("newValue: ", newValue)
-		fmt.Println("checkValue: ", checkValue)
-
-		c.Header("Content-Type", contentType)
-		c.Header("Content-Length", contentLength)
-		c.Header("Date", date)
-		c.Status(http.StatusOK)
-
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
-	}
-
+func updateMetricsHandler(c *gin.Context) {
+	services.UpdateMetric(memStorage, c)
 }
 
-func getMetric(c *gin.Context) {
-
-	metricType := c.Param("type")
-	metricName := c.Param("name")
-
-	if metricName == "" {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
-		return
-	}
-
-	switch metricType {
-	case "gauge":
-		if val, ok := memStorage.GetGauge(metricName); ok {
-			value = strconv.FormatFloat(val, 'f', -1, 64)
-			found = true
-		}
-	case "counter":
-		if val, ok := memStorage.GetCounter(metricName); ok {
-			value = strconv.FormatInt(val, 10)
-			found = true
-		}
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
-		return
-	}
-
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric not found"})
-		return
-	}
-
-	c.Header("Content-Type", "text/plain")
-	c.String(http.StatusOK, value)
+func getMetricsHandler(c *gin.Context) {
+	services.GetMetric(memStorage, c)
 }
 
-func getAllMetrics(c *gin.Context) {
-
-	if len(c.Request.URL.String()) != 1 {
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Method not found"})
-		return
-	}
-
-	var sb strings.Builder
-	sb.WriteString("<html><body><h1>Metrics</h1><ul>")
-
-	for metricName, metricValue := range memStorage.Gauges {
-		sb.WriteString(fmt.Sprintf("<li> Gauge metrics: %s - %f</li>", metricName, metricValue))
-	}
-
-	for metricName, metricValue := range memStorage.Counters {
-		sb.WriteString(fmt.Sprintf("<li> Counter metrics: %s - %d</li>", metricName, metricValue))
-	}
-
-	sb.WriteString("</ul></body></html>")
-
-	c.Header("Content-Type", "text/html")
-	c.String(http.StatusOK, sb.String())
+func getAllMetricsHandler(c *gin.Context) {
+	services.GetAllMetrics(memStorage, c)
 }
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	router.GET("/", getAllMetrics)
-	router.GET("/value/:type/:name", getMetric)
-	router.POST("/update/:type/:name/:value", updateMetric)
+	router.GET("/", getAllMetricsHandler)
+	router.GET("/value/:type/:name", getMetricsHandler)
+	router.POST("/update/:type/:name/:value", updateMetricsHandler)
 
-	f.ParseFlags()
-	fmt.Println("Running server on", f.FlagRunAddr)
-	router.Run(f.FlagRunAddr)
+	flags.ParseFlags()
+	fmt.Println("Running server on", flags.FlagRunAddr)
+	router.Run(flags.FlagRunAddr)
 }
