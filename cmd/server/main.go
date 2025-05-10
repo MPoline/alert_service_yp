@@ -3,29 +3,18 @@ package main
 import (
 	"fmt"
 
+	"github.com/MPoline/alert_service_yp/cmd/server/middlewares"
 	services "github.com/MPoline/alert_service_yp/cmd/server/services"
 	flags "github.com/MPoline/alert_service_yp/internal/server"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 var (
 	memStorage = storage.NewMemStorage()
+	logger     *zap.Logger
 )
-
-// func middleware(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		if r.Method != http.MethodPost {
-// 			http.Error(w, "Only POST requests are allowed!", http.StatusMethodNotAllowed)
-// 			return
-// 		}
-// 		if r.Header.Get("Content-Type") != "text/plain" {
-// 			http.Error(w, "Only Content-Type:text/plain are allowed!", http.StatusUnsupportedMediaType)
-// 			return
-// 		}
-// 		next.ServeHTTP(w, r)
-// 	})
-// }
 
 func updateMetricsHandler(c *gin.Context) {
 	services.UpdateMetric(memStorage, c)
@@ -40,8 +29,19 @@ func getAllMetricsHandler(c *gin.Context) {
 }
 
 func main() {
+	var err error
+	logger, err = zap.NewDevelopment()
+	if err != nil {
+		fmt.Println("Logger initialization error", err)
+		panic(err)
+	}
+	defer logger.Sync()
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
+
+	router.Use(middlewares.RequestLogger(logger))
+	router.Use(middlewares.ResponseLogger(logger))
 
 	router.GET("/", getAllMetricsHandler)
 	router.GET("/value/:type/:name", getMetricsHandler)
