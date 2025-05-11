@@ -16,16 +16,24 @@ var (
 	logger     *zap.Logger
 )
 
-func updateMetricsHandler(c *gin.Context) {
-	services.UpdateMetric(memStorage, c)
+func updateMetricsJSONHandler(c *gin.Context) {
+	services.UpdateMetricFromJSON(memStorage, c)
 }
 
-func getMetricsHandler(c *gin.Context) {
-	services.GetMetric(memStorage, c)
+func getMetricsJSONHandler(c *gin.Context) {
+	services.GetMetricFromJSON(memStorage, c)
 }
 
 func getAllMetricsHandler(c *gin.Context) {
 	services.GetAllMetrics(memStorage, c)
+}
+
+func updateMetricsURLHandler(c *gin.Context) {
+	services.UpdateMetricFromJSON(memStorage, c)
+}
+
+func getMetricsURLHandler(c *gin.Context) {
+	services.GetMetricFromJSON(memStorage, c)
 }
 
 func main() {
@@ -44,8 +52,10 @@ func main() {
 	router.Use(middlewares.ResponseLogger(logger))
 
 	router.GET("/", getAllMetricsHandler)
-	router.GET("/value/", getMetricsHandler)
-	router.POST("/update/", updateMetricsHandler)
+	router.GET("/value/", getMetricsJSONHandler)
+	router.POST("/update/", updateMetricsJSONHandler)
+	router.GET("/value/:type/:name", getMetricsURLHandler)
+	router.POST("/update/:type/:name/:value", updateMetricsURLHandler)
 
 	flags.ParseFlags()
 	fmt.Println("Running server on", flags.FlagRunAddr)
