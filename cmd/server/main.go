@@ -44,8 +44,8 @@ func main() {
 	router.Use(middlewares.ResponseLogger(logger))
 
 	router.GET("/", getAllMetricsHandler)
-	router.GET("/value/:type/:name", getMetricsHandler)
-	router.POST("/update/:type/:name/:value", updateMetricsHandler)
+	router.GET("/value/", getMetricsHandler)
+	router.POST("/update/", updateMetricsHandler)
 
 	flags.ParseFlags()
 	fmt.Println("Running server on", flags.FlagRunAddr)

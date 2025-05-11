@@ -1,8 +1,8 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
-	"net/http/httputil"
 	"time"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
@@ -12,51 +12,61 @@ import (
 var (
 	serverURL = "http://localhost:8080/update"
 	nRetries  = 3
+	m         storage.Metrics
 )
 
-func CreateURLS(s *storage.MemStorage) (URLStorage []string) {
+func CreateMetrics(s *storage.MemStorage) (metricsStorage []storage.Metrics) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	for key, value := range s.Gauges {
-		url := fmt.Sprintf("%s/gauge/%s/%f", serverURL, key, value)
-		URLStorage = append(URLStorage, url)
+	for gaugeName, gaugeValue := range s.Gauges {
+		m = storage.Metrics{
+			ID:    gaugeName,
+			MType: "gauge",
+			Value: &gaugeValue,
+		}
+		metricsStorage = append(metricsStorage, m)
 	}
 
-	for key, value := range s.Counters {
-		url := fmt.Sprintf("%s/counter/%s/%d", serverURL, key, value)
-		URLStorage = append(URLStorage, url)
+	for counterName, counterValue := range s.Counters {
+		m = storage.Metrics{
+			ID:    counterName,
+			MType: "counter",
+			Delta: &counterValue,
+		}
+		metricsStorage = append(metricsStorage, m)
 	}
 	return
 }
 
-func SendMetrics(s *storage.MemStorage, URLStorage []string) {
+func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 	client := resty.New()
 
-	for _, URL := range URLStorage {
+	for _, metric := range metricsStorage {
+
+		jsonBody, err := json.Marshal(metric)
+		if err != nil {
+			fmt.Println("Failed to encode metric:", err)
+			return
+		}
+
 		nAttempts := 0
 		for nAttempts < nRetries {
-			req := client.R().SetHeader("Content-Type", "text/plain")
-			req.Body = ""
-			req.URL = URL
-			req.Method = "POST"
-			resp, err := req.Send()
+			req := client.R().
+				SetHeader("Content-Type", "application/json").
+				SetBody(jsonBody)
 
-			if err != nil {
-				fmt.Println("Error sending request:", err)
+			resp, err := req.Post(serverURL)
+			if err != nil || resp.IsError() {
+				fmt.Printf("Ошибка отправки метрики '%s': попытка №%d, статус=%s\n", metric.ID, nAttempts+1, resp.Status())
 				nAttempts++
-				time.Sleep(2 * time.Second)
-				dump, _ := httputil.DumpRequest(req.RawRequest, true)
-				fmt.Printf("Оригинальный запрос:\n\n%s", dump)
+				time.Sleep(time.Second * 2)
 				continue
-			}
-			if resp.IsError() {
-				fmt.Println("Error response:", resp.Status())
 			}
 			break
 		}
 		if nAttempts == nRetries {
-			fmt.Println("All retries failed for URL:", URL)
+			fmt.Println("All retries failed for metric '%s' ", metric.ID)
 		}
 	}
 }

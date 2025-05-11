@@ -58,8 +58,8 @@ func main() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			URLStorage := services.CreateURLS(memStorage)
-			services.SendMetrics(memStorage, URLStorage)
+			metricStorage := services.CreateMetrics(memStorage)
+			services.SendMetrics(memStorage, metricStorage)
 		}
 	}()
 

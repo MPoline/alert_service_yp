@@ -1,9 +1,10 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"strconv"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
@@ -12,34 +13,35 @@ import (
 func GetMetric(s *storage.MemStorage, c *gin.Context) {
 
 	var (
-		value string
-		found bool 
+		req   storage.Metrics
+		resp  storage.Metrics
+		found bool
 	)
 
-	fmt.Println("GetMetric start: ", s)
-
-	metricType := c.Param("type")
-	metricName := c.Param("name")
-
-	fmt.Println("Params: ", metricType, metricName)
-
-	if metricName == "" {
-		fmt.Println("metricName == \"\"")
-		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
+	if c.GetHeader("Content-Type") != "application/json" {
+		c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: application/json are allowed"})
 		return
 	}
 
-	switch metricType {
+	data, _ := io.ReadAll(c.Request.Body)
+
+	err := json.Unmarshal(data, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"Error": fmt.Sprintf("Invalid input data: %v", err)})
+		return
+	}
+
+	switch req.MType {
 	case "gauge":
-		if val, ok := s.GetGauge(metricName); ok {
+		if val, ok := s.GetGauge(req.ID); ok {
 			fmt.Println("Found gauge: ", val)
-			value = strconv.FormatFloat(val, 'f', -1, 64)
+			resp.Value = &val
 			found = true
 		}
 	case "counter":
-		if val, ok := s.GetCounter(metricName); ok {
+		if val, ok := s.GetCounter(req.ID); ok {
 			fmt.Println("Found counter: ", val)
-			value = strconv.FormatInt(val, 10)
+			resp.Delta = &val
 			found = true
 		}
 	default:
@@ -56,6 +58,15 @@ func GetMetric(s *storage.MemStorage, c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "text/plain")
-	c.String(http.StatusOK, value)
+	resp.ID = req.ID
+	resp.MType = req.MType
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Failed to encode response"})
+		return
+	}
+
+	c.Header("Content-Type", "application/json")
+	c.String(http.StatusOK, string(respBytes))
 }
