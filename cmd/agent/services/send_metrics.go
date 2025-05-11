@@ -66,7 +66,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 			break
 		}
 		if nAttempts == nRetries {
-			fmt.Println("All retries failed for metric '%s' ", metric.ID)
+			fmt.Printf("All retries failed for metric '%s'", metric.ID)
 		}
 	}
 }
