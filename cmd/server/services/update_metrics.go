@@ -20,10 +20,10 @@ func UpdateMetric(s *storage.MemStorage, c *gin.Context) {
 
 	data, _ := io.ReadAll(c.Request.Body)
 
-	if c.GetHeader("Content-Type") != "application/json" {
-		c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: application/json are allowed"})
-		return
-	}
+	// if c.GetHeader("Content-Type") != "application/json" {
+	// 	c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: application/json are allowed"})
+	// 	return
+	// }
 
 	err := json.Unmarshal(data, &req)
 	if err != nil {
