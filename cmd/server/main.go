@@ -29,11 +29,11 @@ func getAllMetricsHandler(c *gin.Context) {
 }
 
 func updateMetricsURLHandler(c *gin.Context) {
-	services.UpdateMetricFromJSON(memStorage, c)
+	services.UpdateMetricFromURL(memStorage, c)
 }
 
 func getMetricsURLHandler(c *gin.Context) {
-	services.GetMetricFromJSON(memStorage, c)
+	services.GetMetricFromURL(memStorage, c)
 }
 
 func main() {
