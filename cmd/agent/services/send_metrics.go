@@ -1,8 +1,11 @@
 package services
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
@@ -50,11 +53,24 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 			return
 		}
 
+		var buff bytes.Buffer
+		gz := gzip.NewWriter(&buff)
+		defer gz.Close()
+
+		_, err = gz.Write(jsonBody)
+		if err != nil {
+			log.Println("Failed to compress data:", err)
+			continue
+		}
+		gz.Close()
+		compressedData := buff.Bytes()
+
 		nAttempts := 0
 		for nAttempts < nRetries {
 			req := client.R().
 				SetHeader("Content-Type", "application/json").
-				SetBody(jsonBody)
+				SetHeader("Content-Encoding", "gzip").
+				SetBody(compressedData)
 
 			resp, err := req.Post(serverURL)
 			if err != nil || resp.IsError() {
