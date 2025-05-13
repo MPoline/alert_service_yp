@@ -107,6 +107,7 @@ func UpdateMetricFromURL(s *storage.MemStorage, c *gin.Context) {
 		s.IncrementCounter(metricName, value)
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
+		return
 	}
 
 	fmt.Println(s)

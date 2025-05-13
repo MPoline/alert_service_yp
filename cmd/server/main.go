@@ -7,7 +7,6 @@ import (
 	services "github.com/MPoline/alert_service_yp/cmd/server/services"
 	flags "github.com/MPoline/alert_service_yp/internal/server"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
-	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -49,11 +48,10 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
+	router.Use(middlewares.GZipCompress())
+	router.Use(middlewares.GZipDecompress())
 	router.Use(middlewares.RequestLogger(logger))
 	router.Use(middlewares.ResponseLogger(logger))
-
-	router.Use(middlewares.FilterContentType())
-	router.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	router.GET("/", getAllMetricsHandler)
 	router.GET("/value/", getMetricsJSONHandler)
