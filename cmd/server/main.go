@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MPoline/alert_service_yp/cmd/server/middlewares"
 	services "github.com/MPoline/alert_service_yp/cmd/server/services"
@@ -61,5 +62,36 @@ func main() {
 
 	flags.ParseFlags()
 	fmt.Println("Running server on", flags.FlagRunAddr)
+	fmt.Println("Store metrics interval: ", flags.FlagStoreInterval)
+	fmt.Println("Store path: ", flags.FlagFileStoragePath)
+	fmt.Println("Is restore: ", flags.FlagRestore)
+
+	if flags.FlagRestore {
+		err := memStorage.LoadFromFile(flags.FlagFileStoragePath)
+		if err != nil {
+			logger.Warn("Error read from file: ", zap.Error(err))
+		}
+	}
+
+	storeInterval := time.Second * time.Duration(flags.FlagStoreInterval)
+	if flags.FlagStoreInterval > 0 {
+		ticker := time.NewTicker(storeInterval)
+		go func() {
+			for range ticker.C {
+				err := memStorage.SaveToFile(flags.FlagFileStoragePath)
+				if err != nil {
+					logger.Error("Error save metrics: ", zap.Error(err))
+				}
+			}
+		}()
+	}
+
+	defer func() {
+		err := memStorage.SaveToFile(flags.FlagFileStoragePath)
+		if err != nil {
+			logger.Fatal("Error last save metrics: ", zap.Error(err))
+		}
+	}()
+
 	router.Run(flags.FlagRunAddr)
 }
