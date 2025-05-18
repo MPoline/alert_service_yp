@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 type MemStorage struct {
@@ -83,19 +84,20 @@ func (s *MemStorage) SaveToFile(filePath string) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		fmt.Printf("Error marsal data: %v\n", err)
+		zap.L().Error("Error marsal data: ", zap.Error(err))
 		return err
 	}
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Printf("Error open file: %v\n", err)
+		zap.L().Error("Error open file: ", zap.Error(err))
 		return err
 	}
 	defer file.Close()
 
 	_, err = file.Write(jsonData)
 	if err != nil {
-		fmt.Printf("Error write file: %v\n", err)
+		zap.L().Error("Error write file: ", zap.Error(err))
 		return err
 	}
 
@@ -108,14 +110,14 @@ func (s *MemStorage) LoadFromFile(filePath string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Printf("Error open file: %v\n", err)
+		zap.L().Error("Error open file: ", zap.Error(err))
 		return err
 	}
 	defer file.Close()
 
 	jsonData, err := io.ReadAll(file)
 	if err != nil {
-		log.Printf("Error read file: %v\n", err)
+		zap.L().Error("Error read file: ", zap.Error(err))
 		return err
 	}
 
@@ -126,7 +128,7 @@ func (s *MemStorage) LoadFromFile(filePath string) error {
 
 	err = json.Unmarshal(jsonData, &data)
 	if err != nil {
-		log.Printf("Error unmarshal JSON: %v\n", err)
+		zap.L().Error("Error unmarshal JSON: ", zap.Error(err))
 		return err
 	}
 

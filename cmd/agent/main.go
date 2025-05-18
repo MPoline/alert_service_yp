@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	services "github.com/MPoline/alert_service_yp/cmd/agent/services"
 	f "github.com/MPoline/alert_service_yp/internal/agent"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
+	"go.uber.org/zap"
 )
 
 var (
@@ -39,14 +39,12 @@ func main() {
 		for range ticker.C {
 			services.GetMetrics(memStorage, neсMetrics)
 
-			fmt.Println("Gauges:")
 			for key, value := range memStorage.Gauges {
-				fmt.Printf("%s: %v\n", key, value)
+				zap.L().Info("Gauges: ", zap.String("key", key), zap.Float64("value", value))
 			}
 
-			fmt.Println("Counters:")
 			for key, value := range memStorage.Counters {
-				fmt.Printf("%s: %v\n", key, value)
+				zap.L().Info("Counters: ", zap.String("key", key), zap.Int64("value", value))
 			}
 		}
 	}()

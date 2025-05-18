@@ -7,12 +7,14 @@ import (
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func GetAllMetrics(s *storage.MemStorage, c *gin.Context) {
 
 	if len(c.Request.URL.String()) != 1 {
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Method not found"})
+		zap.L().Info("Method not found")
 		return
 	}
 

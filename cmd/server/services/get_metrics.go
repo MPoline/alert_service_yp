@@ -9,6 +9,7 @@ import (
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func GetMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
@@ -19,43 +20,43 @@ func GetMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
 		found bool
 	)
 
-	// if c.GetHeader("Content-Type") != "application/json" {
-	// 	c.JSON(http.StatusUnsupportedMediaType, gin.H{"Error": "Only Content-Type: application/json are allowed"})
-	// 	return
-	// }
+	data, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		zap.L().Error("Error in read request: ", zap.Error(err))
+		return
+	}
 
-	data, _ := io.ReadAll(c.Request.Body)
-
-	err := json.Unmarshal(data, &req)
+	err = json.Unmarshal(data, &req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": fmt.Sprintf("Invalid input data: %v", err)})
+		zap.L().Error("Error in unmarshal request: ", zap.Error(err))
 		return
 	}
 
 	switch req.MType {
 	case "gauge":
 		if val, ok := s.GetGauge(req.ID); ok {
-			fmt.Println("Found gauge: ", val)
+			zap.L().Info("Found gauge", zap.Float64("value", val))
 			resp.Value = &val
 			found = true
 		}
 	case "counter":
 		if val, ok := s.GetCounter(req.ID); ok {
-			fmt.Println("Found counter: ", val)
+			zap.L().Info("Found gauge", zap.Int64("value", val))
 			resp.Delta = &val
 			found = true
 		}
 	default:
-		fmt.Println("Unknown metric type")
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
+		zap.L().Info("Unknown metric type")
 		return
 	}
 
-	fmt.Println("Found flag is: ", found)
+	zap.L().Info("Found flag is: ", zap.Bool("flag", found))
 
 	if !found {
-		fmt.Println("Metric not found")
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric not found"})
+		zap.L().Info("Metric not found")
 		return
 	}
 
@@ -65,6 +66,7 @@ func GetMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
 	respBytes, err := json.Marshal(resp)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Failed to encode response"})
+		zap.L().Error("Failed to encode response: ", zap.Error(err))
 		return
 	}
 
@@ -79,42 +81,38 @@ func GetMetricFromURL(s *storage.MemStorage, c *gin.Context) {
 		found bool
 	)
 
-	fmt.Println("GetMetric start: ", s)
-
 	metricType := c.Param("type")
 	metricName := c.Param("name")
 
-	fmt.Println("Params: ", metricType, metricName)
-
 	if metricName == "" {
-		fmt.Println("metricName == \"\"")
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric name is required"})
+		zap.L().Info("Metric name is required")
 		return
 	}
 
 	switch metricType {
 	case "gauge":
 		if val, ok := s.GetGauge(metricName); ok {
-			fmt.Println("Found gauge: ", val)
+			zap.L().Info("Found gauge", zap.Float64("value", val))
 			value = strconv.FormatFloat(val, 'f', -1, 64)
 			found = true
 		}
 	case "counter":
 		if val, ok := s.GetCounter(metricName); ok {
-			fmt.Println("Found counter: ", val)
+			zap.L().Info("Found counter: ", zap.Int64("value", val))
 			value = strconv.FormatInt(val, 10)
 			found = true
 		}
 	default:
-		fmt.Println("Unknown metric type")
+		zap.L().Info("Unknown metric type")
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
 		return
 	}
 
-	fmt.Println("Found flag is: ", found)
+	zap.L().Info("Found flag is: ", zap.Bool("flag", found))
 
 	if !found {
-		fmt.Println("Metric not found")
+		zap.L().Info("Metric not found")
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Metric not found"})
 		return
 	}

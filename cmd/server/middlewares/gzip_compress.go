@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type gzipWriter struct {
@@ -26,6 +27,7 @@ func GZipDecompress() gin.HandlerFunc {
 			gzr, err := gzip.NewReader(c.Request.Body)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request"})
+				zap.L().Error("Failed to decode compressed request: ", zap.Error(err))
 				return
 			}
 			defer gzr.Close()
@@ -33,6 +35,7 @@ func GZipDecompress() gin.HandlerFunc {
 			body, err := io.ReadAll(gzr)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to read compressed request"})
+				zap.L().Error("Failed to read compressed request: ", zap.Error(err))
 				return
 			}
 
@@ -55,7 +58,8 @@ func GZipCompress() gin.HandlerFunc {
 		// Создаем gzip.Writer поверх существующего response writer
 		gzw, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request."})
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request"})
+			zap.L().Error("Failed to decode compressed request: ", zap.Error(err))
 			return
 		}
 		defer gzw.Close()

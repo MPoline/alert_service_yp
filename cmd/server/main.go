@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/MPoline/alert_service_yp/cmd/server/middlewares"
 	services "github.com/MPoline/alert_service_yp/cmd/server/services"
+	"github.com/MPoline/alert_service_yp/internal/logging"
 	flags "github.com/MPoline/alert_service_yp/internal/server"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
@@ -14,7 +16,6 @@ import (
 
 var (
 	memStorage = storage.NewMemStorage()
-	logger     *zap.Logger
 )
 
 func updateMetricsJSONHandler(c *gin.Context) {
@@ -39,12 +40,17 @@ func getMetricsURLHandler(c *gin.Context) {
 
 func main() {
 	var err error
-	logger, err = zap.NewDevelopment()
+
+	logger, err := logging.InitLog()
 	if err != nil {
-		fmt.Println("Logger initialization error", err)
-		panic(err)
+		fmt.Fprintln(os.Stderr, "Error initializing logger:", err)
 	}
 	defer logger.Sync()
+
+	undo := zap.ReplaceGlobals(logger)
+	defer undo()
+
+	
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -61,10 +67,14 @@ func main() {
 	router.POST("/update/:type/:name/:value", updateMetricsURLHandler)
 
 	flags.ParseFlags()
-	fmt.Println("Running server on", flags.FlagRunAddr)
-	fmt.Println("Store metrics interval: ", flags.FlagStoreInterval)
-	fmt.Println("Store path: ", flags.FlagFileStoragePath)
-	fmt.Println("Is restore: ", flags.FlagRestore)
+
+	logger.Info(
+		"Server settings",
+		zap.String("Running server address: ", flags.FlagRunAddr),
+		zap.Int64("Store metrics interval: ", flags.FlagStoreInterval),
+		zap.String("Store path: ", flags.FlagFileStoragePath),
+		zap.Bool("Is restore: ", flags.FlagRestore),
+	)
 
 	if flags.FlagRestore {
 		err := memStorage.LoadFromFile(flags.FlagFileStoragePath)

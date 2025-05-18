@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
-	"log"
 	"time"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 )
 
 var (
@@ -49,7 +48,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 
 		jsonBody, err := json.Marshal(metric)
 		if err != nil {
-			fmt.Println("Failed to encode metric:", err)
+			zap.L().Error("Failed to encode metric: ", zap.Error(err))
 			return
 		}
 
@@ -59,7 +58,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 
 		_, err = gz.Write(jsonBody)
 		if err != nil {
-			log.Println("Failed to compress data:", err)
+			zap.L().Info("Failed to compress data: ", zap.Error(err))
 			continue
 		}
 		gz.Close()
@@ -74,15 +73,11 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 
 			resp, err := req.Post(serverURL)
 			if err != nil || resp.IsError() {
-				fmt.Printf("Ошибка отправки метрики '%s': попытка №%d, статус=%s\n", metric.ID, nAttempts+1, resp.Status())
 				nAttempts++
 				time.Sleep(time.Second * 2)
 				continue
 			}
 			break
-		}
-		if nAttempts == nRetries {
-			fmt.Printf("All retries failed for metric '%s'", metric.ID)
 		}
 	}
 }
