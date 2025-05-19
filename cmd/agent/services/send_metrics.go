@@ -1,62 +1,83 @@
 package services
 
 import (
-	"fmt"
-	"net/http/httputil"
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"time"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 )
 
 var (
 	serverURL = "http://localhost:8080/update"
 	nRetries  = 3
+	m         storage.Metrics
 )
 
-func CreateURLS(s *storage.MemStorage) (URLStorage []string) {
+func CreateMetrics(s *storage.MemStorage) (metricsStorage []storage.Metrics) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	for key, value := range s.Gauges {
-		url := fmt.Sprintf("%s/gauge/%s/%f", serverURL, key, value)
-		URLStorage = append(URLStorage, url)
+	for gaugeName, gaugeValue := range s.Gauges {
+		m = storage.Metrics{
+			ID:    gaugeName,
+			MType: "gauge",
+			Value: &gaugeValue,
+		}
+		metricsStorage = append(metricsStorage, m)
 	}
 
-	for key, value := range s.Counters {
-		url := fmt.Sprintf("%s/counter/%s/%d", serverURL, key, value)
-		URLStorage = append(URLStorage, url)
+	for counterName, counterValue := range s.Counters {
+		m = storage.Metrics{
+			ID:    counterName,
+			MType: "counter",
+			Delta: &counterValue,
+		}
+		metricsStorage = append(metricsStorage, m)
 	}
 	return
 }
 
-func SendMetrics(s *storage.MemStorage, URLStorage []string) {
+func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
 	client := resty.New()
 
-	for _, URL := range URLStorage {
+	for _, metric := range metricsStorage {
+
+		jsonBody, err := json.Marshal(metric)
+		if err != nil {
+			zap.L().Error("Failed to encode metric: ", zap.Error(err))
+			return
+		}
+
+		var buff bytes.Buffer
+		gz := gzip.NewWriter(&buff)
+		defer gz.Close()
+
+		_, err = gz.Write(jsonBody)
+		if err != nil {
+			zap.L().Info("Failed to compress data: ", zap.Error(err))
+			continue
+		}
+		gz.Close()
+		compressedData := buff.Bytes()
+
 		nAttempts := 0
 		for nAttempts < nRetries {
-			req := client.R().SetHeader("Content-Type", "text/plain")
-			req.Body = ""
-			req.URL = URL
-			req.Method = "POST"
-			resp, err := req.Send()
+			req := client.R().
+				SetHeader("Content-Type", "application/json").
+				SetHeader("Content-Encoding", "gzip").
+				SetBody(compressedData)
 
-			if err != nil {
-				fmt.Println("Error sending request:", err)
+			resp, err := req.Post(serverURL)
+			if err != nil || resp.IsError() {
 				nAttempts++
-				time.Sleep(2 * time.Second)
-				dump, _ := httputil.DumpRequest(req.RawRequest, true)
-				fmt.Printf("Оригинальный запрос:\n\n%s", dump)
+				time.Sleep(time.Second * 2)
 				continue
 			}
-			if resp.IsError() {
-				fmt.Println("Error response:", resp.Status())
-			}
 			break
-		}
-		if nAttempts == nRetries {
-			fmt.Println("All retries failed for URL:", URL)
 		}
 	}
 }
