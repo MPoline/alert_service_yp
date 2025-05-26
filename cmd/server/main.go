@@ -50,8 +50,6 @@ func main() {
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
-	
-
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
@@ -60,6 +58,7 @@ func main() {
 	router.Use(middlewares.RequestLogger(logger))
 	router.Use(middlewares.ResponseLogger(logger))
 
+	router.GET("/ping", services.CheckDBConnection)
 	router.GET("/", getAllMetricsHandler)
 	router.GET("/value/", getMetricsJSONHandler)
 	router.POST("/update/", updateMetricsJSONHandler)
@@ -71,6 +70,7 @@ func main() {
 	logger.Info(
 		"Server settings",
 		zap.String("Running server address: ", flags.FlagRunAddr),
+		zap.String("Running database address: ", flags.FlagDatabaseDSN),
 		zap.Int64("Store metrics interval: ", flags.FlagStoreInterval),
 		zap.String("Store path: ", flags.FlagFileStoragePath),
 		zap.Bool("Is restore: ", flags.FlagRestore),
