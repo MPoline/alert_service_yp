@@ -30,7 +30,6 @@ func NewDBStorage() *DBStorage {
 
 func (s DBStorage) Close() {
 	database.CloseDBConnection(s.dbConn)
-	return
 }
 
 func (s DBStorage) GetAllMetrics() ([]models.Metrics, error) {

@@ -55,7 +55,7 @@ func (s *MemStorage) IncrementCounter(name string, value int64) {
 	s.Counters[name] += value
 }
 
-func (s MemStorage) GetAllMetrics() ([]models.Metrics, error) {
+func (s *MemStorage) GetAllMetrics() ([]models.Metrics, error) {
 	var allMetrics []models.Metrics
 
 	for metricName, metricValue := range s.Gauges {
@@ -78,7 +78,7 @@ func (s MemStorage) GetAllMetrics() ([]models.Metrics, error) {
 	return allMetrics, nil
 }
 
-func (s MemStorage) GetMetric(metricType string, metricName string) (models.Metrics, error) {
+func (s *MemStorage) GetMetric(metricType string, metricName string) (models.Metrics, error) {
 	var found bool
 	var metric models.Metrics
 
@@ -113,7 +113,7 @@ func (s MemStorage) GetMetric(metricType string, metricName string) (models.Metr
 	return metric, nil
 }
 
-func (s MemStorage) UpdateMetric(metric models.Metrics) error {
+func (s *MemStorage) UpdateMetric(metric models.Metrics) error {
 
 	_, err := metric.IsValid()
 	if err != nil {
@@ -164,9 +164,8 @@ func (s *MemStorage) SaveToFile(filePath string) error {
 	return nil
 }
 
-func (s MemStorage) Close() {
+func (s *MemStorage) Close() {
 	s.SaveToFile(flags.FlagFileStoragePath)
-	return
 }
 
 func (s *MemStorage) LoadFromFile(filePath string) error {

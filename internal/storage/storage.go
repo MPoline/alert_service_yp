@@ -23,14 +23,14 @@ func InitStorage(storageType string) {
 }
 
 func SaveToFile(s Storage, filePath string) error {
-	if ms, ok := s.(MemStorage); ok {
+	if ms, ok := s.(*MemStorage); ok {
 		ms.SaveToFile(filePath)
 	}
 	return nil
 }
 
 func LoadFromFile(s Storage, filePath string) error {
-	if ms, ok := s.(MemStorage); ok {
+	if ms, ok := s.(*MemStorage); ok {
 		ms.LoadFromFile(filePath)
 	}
 	return nil
