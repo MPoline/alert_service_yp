@@ -24,7 +24,7 @@ func GetAllMetrics(c *gin.Context) {
 	metrics, err := storage.MetricStorage.GetAllMetrics()
 
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("<li> Error getting metric </li>"))
+		sb.WriteString("<li> Error getting metric </li>")
 		sb.WriteString("</ul></body></html>")
 		c.Header("Content-Type", "text/html")
 		c.String(http.StatusNotFound, sb.String())
