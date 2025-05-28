@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/MPoline/alert_service_yp/internal/models"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
@@ -14,15 +15,15 @@ import (
 var (
 	serverURL = "http://localhost:8080/update"
 	nRetries  = 3
-	m         storage.Metrics
+	m         models.Metrics
 )
 
-func CreateMetrics(s *storage.MemStorage) (metricsStorage []storage.Metrics) {
+func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
 	for gaugeName, gaugeValue := range s.Gauges {
-		m = storage.Metrics{
+		m = models.Metrics{
 			ID:    gaugeName,
 			MType: "gauge",
 			Value: &gaugeValue,
@@ -31,7 +32,7 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []storage.Metrics) {
 	}
 
 	for counterName, counterValue := range s.Counters {
-		m = storage.Metrics{
+		m = models.Metrics{
 			ID:    counterName,
 			MType: "counter",
 			Delta: &counterValue,
@@ -41,7 +42,7 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []storage.Metrics) {
 	return
 }
 
-func SendMetrics(s *storage.MemStorage, metricsStorage []storage.Metrics) {
+func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	client := resty.New()
 
 	for _, metric := range metricsStorage {
