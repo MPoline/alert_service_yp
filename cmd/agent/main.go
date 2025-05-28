@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
-	services "github.com/MPoline/alert_service_yp/cmd/agent/services"
-	f "github.com/MPoline/alert_service_yp/internal/agent"
-	storage "github.com/MPoline/alert_service_yp/internal/storage"
+	"github.com/MPoline/alert_service_yp/internal/agent/flags"
+	"github.com/MPoline/alert_service_yp/internal/agent/services"
+	"github.com/MPoline/alert_service_yp/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -25,9 +25,9 @@ var (
 )
 
 func main() {
-	f.ParseFlags()
-	pollInterval := time.Duration(f.FlagPollInterval) * time.Second
-	reportInterval := time.Duration(f.FlagReportInterval) * time.Second
+	flags.ParseFlags()
+	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
+	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
 	wg.Add(2)
 
 	// Сбор метрик

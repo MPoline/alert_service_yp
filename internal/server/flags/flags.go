@@ -1,4 +1,4 @@
-package server
+package flags
 
 import (
 	"flag"
@@ -22,7 +22,7 @@ func ParseFlags() {
 	flag.Int64Var(&FlagStoreInterval, "i", 300, "frequency of save metrics")
 	flag.StringVar(&FlagFileStoragePath, "f", "./savedMetrics", "address of file for save metrics")
 	flag.BoolVar(&FlagRestore, "r", false, "read metrics from file")
-	flag.StringVar(&FlagDatabaseDSN, "d", "postgres://alertserviceUser:alertserviceUser@localhost:9876/alertservicedb", "address and port to run database")
+	flag.StringVar(&FlagDatabaseDSN, "d", "", "address and port to run database")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -59,4 +59,13 @@ func ParseFlags() {
 		zap.L().Info("DATABASE_DSN: ", zap.String("envDatabaseDNS", envDatabaseDSN))
 		FlagDatabaseDSN = envDatabaseDSN
 	}
+
+	zap.L().Info(
+		"Server settings",
+		zap.String("Running server address: ", FlagRunAddr),
+		zap.String("Running database address: ", FlagDatabaseDSN),
+		zap.Int64("Store metrics interval: ", FlagStoreInterval),
+		zap.String("Store path: ", FlagFileStoragePath),
+		zap.Bool("Is restore: ", FlagRestore),
+	)
 }
