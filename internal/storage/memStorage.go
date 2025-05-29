@@ -117,7 +117,7 @@ func (s *MemStorage) UpdateMetric(metric models.Metrics) error {
 
 	_, err := metric.IsValid()
 	if err != nil {
-		zap.L().Info("Error in Metric Parametrs")
+		zap.L().Info("Error in Metric Parametrs: ", zap.Error(err))
 		return err
 	}
 

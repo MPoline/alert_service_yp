@@ -120,16 +120,20 @@ func UpdateMetricFromURL(c *gin.Context) {
 
 	err := storage.MetricStorage.UpdateMetric(req)
 	if err != nil {
-		if err.Error() == "Unknown" {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric"})
+		if err.Error() == "InvalidMetricType" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricType"})
 			return
 		}
-		if err.Error() == "InvalidCounter" {
-			c.JSON(http.StatusNotFound, gin.H{"Error": "InvalidCounter"})
+		if err.Error() == "InvalidCounterValue" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidCounterValue"})
 			return
 		}
-		if err.Error() == "InvalidGauge" {
-			c.JSON(http.StatusNotFound, gin.H{"Error": "InvalidGauge"})
+		if err.Error() == "InvalidGaugeValue" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidGaugeValue"})
+			return
+		}
+		if err.Error() == "InvalidMetricName" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricName"})
 			return
 		}
 	}
