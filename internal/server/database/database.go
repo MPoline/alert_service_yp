@@ -11,6 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
+var createOrUpdateQuery = ` INSERT INTO metrics 
+		(id, m_type, delta, value)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (id, m_type)
+		DO UPDATE SET delta = EXCLUDED.delta, value = EXCLUDED.value 
+	; `
+
 func OpenDBConnection() (db *sql.DB, err error) {
 	db, err = sql.Open("postgres", flags.FlagDatabaseDSN)
 	if err != nil {
@@ -48,21 +55,31 @@ func CreateMetricsTable(db *sql.DB) error {
 }
 
 func CreateOrUpdateMetric(db *sql.DB, metric models.Metrics) error {
-
-	query := ` INSERT INTO metrics 
-		(id, m_type, delta, value)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (id, m_type)
-		DO UPDATE SET delta = EXCLUDED.delta, value = EXCLUDED.value 
-	; `
-
-	_, err := db.Exec(query, metric.ID, metric.MType, metric.Delta, metric.Value)
+	_, err := db.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 	if err != nil {
 		zap.L().Error("SQL query execution error:", zap.Error(err))
 		return err
 	}
 	zap.L().Info("Metric created/updated in metrics table")
 	return nil
+}
+
+func CreateOrUpdateSliceOfMetrics(db *sql.DB, metrics models.SliceMetrics) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, metric := range metrics.Metrics {
+		_, err := tx.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
+		if err != nil {
+			zap.L().Error("SQL query execution error:", zap.Error(err))
+			tx.Rollback()
+			return err
+		}
+	}
+	zap.L().Info("Metric created/updated within transaction")
+	return tx.Commit()
 }
 
 func GetAllMetricsFromDB(db *sql.DB) ([]models.Metrics, error) {

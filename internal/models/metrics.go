@@ -2,6 +2,10 @@ package models
 
 import "errors"
 
+type SliceMetrics struct {
+	Metrics []Metrics `json:"metrics"`
+}
+
 type Metrics struct {
 	ID    string   `json:"id"`              // имя метрики
 	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter

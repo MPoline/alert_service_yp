@@ -62,7 +62,7 @@ func (s DBStorage) UpdateMetric(metric models.Metrics) error {
 
 		if err == nil {
 			*metric.Delta += *m.Delta
-		} else if err != sql.ErrNoRows {
+		} else if err.Error() != "MetricNotFound" {
 			zap.L().Error("Error create/update metric from table: ", zap.Error(err))
 			return err
 		}
@@ -74,5 +74,36 @@ func (s DBStorage) UpdateMetric(metric models.Metrics) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s DBStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error {
+	for _, metric := range sliceMitrics.Metrics {
+		if ok, err := metric.IsValid(); !ok {
+			zap.L().Info("Error in Metric Parametrs: ", zap.Error(err))
+			return err
+		}
+	}
+
+	for _, metric := range sliceMitrics.Metrics {
+		if metric.MType == "counter" {
+			m, err := s.GetMetric(metric.MType, metric.ID)
+
+			if err == nil {
+				*metric.Delta += *m.Delta
+			} else if err.Error() != "MetricNotFound" {
+				zap.L().Error("Error create/update metric from table: ", zap.Error(err))
+				return err
+			}
+		}
+	}
+
+	err := database.CreateOrUpdateSliceOfMetrics(s.dbConn, sliceMitrics)
+	if err != nil {
+		zap.L().Error("Error create/update metric from table: ", zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("All metrics updated successfully")
 	return nil
 }

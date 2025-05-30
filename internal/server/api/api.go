@@ -20,6 +20,7 @@ func InitRouter() *gin.Engine {
 	router.GET("/", services.GetAllMetrics)
 	router.GET("/value/", services.GetMetricFromJSON)
 	router.POST("/update/", services.UpdateMetricFromJSON)
+	router.POST("/updates/", services.UpdateSliceOfMetrics)
 	router.GET("/value/:type/:name", services.GetMetricFromURL)
 	router.POST("/update/:type/:name/:value", services.UpdateMetricFromURL)
 

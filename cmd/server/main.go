@@ -53,7 +53,7 @@ func main() {
 				}
 			}()
 		}
-		
+
 	}
 
 	defer storage.MetricStorage.Close()

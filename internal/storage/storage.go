@@ -8,6 +8,7 @@ type Storage interface {
 	GetAllMetrics() ([]models.Metrics, error)
 	GetMetric(metricType string, metricName string) (models.Metrics, error)
 	UpdateMetric(metric models.Metrics) error
+	UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error
 	Close()
 }
 

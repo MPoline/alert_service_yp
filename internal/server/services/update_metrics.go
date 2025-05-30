@@ -35,20 +35,15 @@ func UpdateMetricFromJSON(c *gin.Context) {
 	err = storage.MetricStorage.UpdateMetric(req)
 
 	if err != nil {
-		if err.Error() == "InvalidMetricName" {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricName"})
+		if err.Error() == "InvalidMetricName" || err.Error() == "InvalidMetricType" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
-		if err.Error() == "InvalidMetricType" {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricType"})
+		if err.Error() == "InvalidCounterValue" || err.Error() == "InvalidGaugeValue" {
+			c.JSON(http.StatusNotFound, gin.H{"Error": err.Error()})
 			return
-		}
-		if err.Error() == "InvalidCounterValue" {
-			c.JSON(http.StatusNotFound, gin.H{"Error": "InvalidCounterValue"})
-			return
-		}
-		if err.Error() == "InvalidGaugeValue" {
-			c.JSON(http.StatusNotFound, gin.H{"Error": "InvalidGaugeValue"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
 			return
 		}
 	}

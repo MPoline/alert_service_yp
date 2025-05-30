@@ -130,6 +130,25 @@ func (s *MemStorage) UpdateMetric(metric models.Metrics) error {
 	return nil
 }
 
+func (s *MemStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error {
+	for _, metric := range sliceMitrics.Metrics {
+		if ok, err := metric.IsValid(); !ok {
+			zap.L().Info("Error in Metric Parametrs: ", zap.Error(err))
+			return err
+		}
+	}
+
+	for _, metric := range sliceMitrics.Metrics {
+		switch metric.MType {
+		case "gauge":
+			s.SetGauge(metric.ID, *metric.Value)
+		case "counter":
+			s.IncrementCounter(metric.ID, *metric.Delta)
+		}
+	}
+	return nil
+}
+
 func (s *MemStorage) SaveToFile(filePath string) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
