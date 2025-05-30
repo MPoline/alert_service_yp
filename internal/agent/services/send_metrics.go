@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	serverURL = "http://localhost:8080/update"
+	serverURL = "http://localhost:8080/updates"
 	nRetries  = 3
 	m         models.Metrics
 )
@@ -45,40 +45,43 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	client := resty.New()
 
-	for _, metric := range metricsStorage {
+	batch := map[string][]models.Metrics{"metrics": metricsStorage}
 
-		jsonBody, err := json.Marshal(metric)
-		if err != nil {
-			zap.L().Error("Failed to encode metric: ", zap.Error(err))
-			return
-		}
+	jsonBody, err := json.Marshal(batch)
+	if err != nil {
+		zap.L().Error("Failed to marshal batch of metrics: ", zap.Error(err))
+		return
+	}
 
-		var buff bytes.Buffer
-		gz := gzip.NewWriter(&buff)
-		defer gz.Close()
+	var buff bytes.Buffer
+	gz := gzip.NewWriter(&buff)
+	defer gz.Close()
 
-		_, err = gz.Write(jsonBody)
-		if err != nil {
-			zap.L().Info("Failed to compress data: ", zap.Error(err))
+	_, err = gz.Write(jsonBody)
+	if err != nil {
+		zap.L().Info("Failed to compress data: ", zap.Error(err))
+		return
+	}
+	gz.Close()
+	compressedData := buff.Bytes()
+
+	nAttempts := 0
+	for nAttempts < nRetries {
+		req := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetBody(compressedData)
+
+		resp, err := req.Post(serverURL)
+		if err != nil || resp.IsError() {
+			nAttempts++
+			time.Sleep(time.Second * 2)
 			continue
 		}
-		gz.Close()
-		compressedData := buff.Bytes()
+		break
+	}
 
-		nAttempts := 0
-		for nAttempts < nRetries {
-			req := client.R().
-				SetHeader("Content-Type", "application/json").
-				SetHeader("Content-Encoding", "gzip").
-				SetBody(compressedData)
-
-			resp, err := req.Post(serverURL)
-			if err != nil || resp.IsError() {
-				nAttempts++
-				time.Sleep(time.Second * 2)
-				continue
-			}
-			break
-		}
+	if nAttempts >= nRetries {
+		zap.L().Error("Maximum retries exceeded while sending metrics.", zap.Int("retries", nRetries))
 	}
 }
