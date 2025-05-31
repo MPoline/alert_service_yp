@@ -14,7 +14,6 @@ import (
 
 var (
 	serverURL = "http://localhost:8080/updates"
-	nRetries  = 3
 	m         models.Metrics
 )
 
@@ -46,6 +45,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	client := resty.New()
 
 	batch := map[string][]models.Metrics{"metrics": metricsStorage}
+	intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 
 	jsonBody, err := json.Marshal(batch)
 	if err != nil {
@@ -65,8 +65,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	gz.Close()
 	compressedData := buff.Bytes()
 
-	nAttempts := 0
-	for nAttempts < nRetries {
+	for attempt, interval := range intervals {
 		req := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
@@ -74,14 +73,12 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 
 		resp, err := req.Post(serverURL)
 		if err != nil || resp.IsError() {
-			nAttempts++
-			time.Sleep(time.Second * 2)
+			zap.L().Warn("Sending metrics failed on attempt", zap.Int("attempt", attempt+1),
+				zap.Duration("interval", interval))
+			time.Sleep(interval)
 			continue
 		}
 		break
 	}
 
-	if nAttempts >= nRetries {
-		zap.L().Error("Maximum retries exceeded while sending metrics.", zap.Int("retries", nRetries))
-	}
 }

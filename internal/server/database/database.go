@@ -6,6 +6,8 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/models"
 	"github.com/MPoline/alert_service_yp/internal/server/flags"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	_ "github.com/lib/pq"
 
 	"go.uber.org/zap"
@@ -47,7 +49,7 @@ func CreateMetricsTable(db *sql.DB) error {
 
 	_, err := db.Exec(createQuery)
 	if err != nil {
-		zap.L().Error("Error create table metrics:", zap.Error(err))
+		handlePGError(err)
 		return err
 	}
 	zap.L().Info("Table metrics is exist")
@@ -57,7 +59,7 @@ func CreateMetricsTable(db *sql.DB) error {
 func CreateOrUpdateMetric(db *sql.DB, metric models.Metrics) error {
 	_, err := db.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 	if err != nil {
-		zap.L().Error("SQL query execution error:", zap.Error(err))
+		handlePGError(err)
 		return err
 	}
 	zap.L().Info("Metric created/updated in metrics table")
@@ -73,7 +75,7 @@ func CreateOrUpdateSliceOfMetrics(db *sql.DB, metrics models.SliceMetrics) error
 	for _, metric := range metrics.Metrics {
 		_, err := tx.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 		if err != nil {
-			zap.L().Error("SQL query execution error:", zap.Error(err))
+			handlePGError(err)
 			tx.Rollback()
 			return err
 		}
@@ -87,7 +89,7 @@ func GetAllMetricsFromDB(db *sql.DB) ([]models.Metrics, error) {
 
 	rows, err := db.Query(`SELECT id, m_type, delta, value FROM metrics`)
 	if err != nil {
-		zap.L().Error("Error getting all metrics:", zap.Error(err))
+		handlePGError(err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -96,14 +98,14 @@ func GetAllMetricsFromDB(db *sql.DB) ([]models.Metrics, error) {
 		var metric models.Metrics
 		err := rows.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
 		if err != nil {
-			zap.L().Error("Error in writing metric strings:", zap.Error(err))
+			handlePGError(err)
 			return nil, err
 		}
 		metrics = append(metrics, metric)
 	}
 
 	if err := rows.Err(); err != nil {
-		zap.L().Error("Iteration error on results:", zap.Error(err))
+		handlePGError(err)
 		return nil, err
 	}
 	return metrics, nil
@@ -121,8 +123,35 @@ func GetOneMetric(db *sql.DB, id string, mType string) (models.Metrics, error) {
 		zap.L().Info("Metric not found")
 		return metric, err
 	} else if err != nil {
-		zap.L().Error("Error reading metrics", zap.Error(err))
+		handlePGError(err)
 		return metric, err
 	}
 	return metric, nil
+}
+
+func handlePGError(err error) {
+	if pgErr, ok := err.(*pgconn.PgError); ok {
+		switch pgErr.Code {
+		case pgerrcode.UniqueViolation:
+			zap.L().Warn("PostgreSQL unique constraint violation",
+				zap.String("constraint_name", pgErr.ConstraintName),
+				zap.String("detail", pgErr.Detail))
+		case pgerrcode.ForeignKeyViolation:
+			zap.L().Warn("PostgreSQL foreign key constraint violation",
+				zap.String("constraint_name", pgErr.ConstraintName),
+				zap.String("detail", pgErr.Detail))
+		case pgerrcode.CheckViolation:
+			zap.L().Warn("PostgreSQL check constraint violation",
+				zap.String("constraint_name", pgErr.ConstraintName),
+				zap.String("detail", pgErr.Detail))
+		case pgerrcode.NotNullViolation:
+			zap.L().Warn("PostgreSQL not-null constraint violation",
+				zap.String("column_name", pgErr.ColumnName),
+				zap.String("table_name", pgErr.TableName))
+		default:
+			zap.L().Error("Unhandled PostgreSQL error:", zap.Error(pgErr))
+		}
+	} else {
+		zap.L().Error("Unknown error:", zap.Error(err))
+	}
 }
