@@ -8,16 +8,16 @@ import (
 	"strconv"
 	"time"
 
-	storage "github.com/MPoline/alert_service_yp/internal/storage"
+	"github.com/MPoline/alert_service_yp/internal/models"
+	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-func UpdateMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
+func UpdateMetricFromJSON(c *gin.Context) {
 
 	var (
-		req  storage.Metrics
-		resp storage.Metrics
+		req models.Metrics
 	)
 
 	data, err := io.ReadAll(c.Request.Body)
@@ -32,32 +32,23 @@ func UpdateMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
 		return
 	}
 
-	switch req.MType {
-	case "gauge":
-		if req.Value == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid gauge value"})
-			zap.L().Info("Invalid gauge value")
+	err = storage.MetricStorage.UpdateMetric(req)
+
+	if err != nil {
+		if err.Error() == "InvalidMetricName" || err.Error() == "InvalidMetricType" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
-		s.SetGauge(req.ID, *req.Value)
-	case "counter":
-		if req.Delta == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid counter value"})
-			zap.L().Info("Invalid counter value")
+		if err.Error() == "InvalidCounterValue" || err.Error() == "InvalidGaugeValue" {
+			c.JSON(http.StatusNotFound, gin.H{"Error": err.Error()})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
 			return
 		}
-		s.IncrementCounter(req.ID, *req.Delta)
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
-		zap.L().Info("Unknown metric type")
 	}
 
-	resp.ID = req.ID
-	resp.MType = req.MType
-	resp.Delta = req.Delta
-	resp.Value = req.Value
-
-	respBytes, err := json.Marshal(resp)
+	respBytes, err := json.Marshal(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Failed to encode response"})
 		zap.L().Error("Failed to encode response: ", zap.Error(err))
@@ -70,7 +61,9 @@ func UpdateMetricFromJSON(s *storage.MemStorage, c *gin.Context) {
 	c.String(http.StatusOK, string(respBytes))
 }
 
-func UpdateMetricFromURL(s *storage.MemStorage, c *gin.Context) {
+func UpdateMetricFromURL(c *gin.Context) {
+
+	var req models.Metrics
 
 	metricType := c.Param("type")
 	metricName := c.Param("name")
@@ -92,27 +85,52 @@ func UpdateMetricFromURL(s *storage.MemStorage, c *gin.Context) {
 		return
 	}
 
-	switch metricType {
-	case "gauge":
+	if metricType == "gauge" {
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid gauge value"})
 			zap.L().Info("Invalid gauge value: ", zap.Error(err))
 			return
 		}
-		s.SetGauge(metricName, value)
-	case "counter":
-		value, err := strconv.ParseInt(metricValue, 10, 64)
+		req = models.Metrics{
+			ID:    metricName,
+			MType: metricType,
+			Value: &value,
+		}
+	}
+
+	if metricType == "counter" {
+		delta, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid counter value"})
 			zap.L().Info("Invalid counter value: ", zap.Error(err))
 			return
 		}
-		s.IncrementCounter(metricName, value)
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric type"})
-		zap.L().Info("Unknown metric type")
-		return
+		req = models.Metrics{
+			ID:    metricName,
+			MType: metricType,
+			Delta: &delta,
+		}
+	}
+
+	err := storage.MetricStorage.UpdateMetric(req)
+	if err != nil {
+		if err.Error() == "InvalidMetricType" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricType"})
+			return
+		}
+		if err.Error() == "InvalidCounterValue" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidCounterValue"})
+			return
+		}
+		if err.Error() == "InvalidGaugeValue" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidGaugeValue"})
+			return
+		}
+		if err.Error() == "InvalidMetricName" {
+			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricName"})
+			return
+		}
 	}
 
 	c.Header("Content-Type", c.GetHeader("Content-Type"))
