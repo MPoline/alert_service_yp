@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"sync"
 	"time"
@@ -84,6 +85,8 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 		zap.L().Error("Failed calculate sha256: ", zap.Error(err))
 		return
 	}
+	hashStr := base64.StdEncoding.EncodeToString(hash)
+	zap.L().Info("hash request: ", zap.String("hashStr", hashStr))
 
 	var buff bytes.Buffer
 	gz := gzip.NewWriter(&buff)
@@ -101,7 +104,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 		req := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
-			SetHeader("HashSHA256", string(hash)).
+			SetHeader("HashSHA256", base64.StdEncoding.EncodeToString(hash)).
 			SetBody(compressedData)
 
 		resp, err := req.Post(serverURL)

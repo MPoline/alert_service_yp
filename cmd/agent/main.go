@@ -54,13 +54,13 @@ func main() {
 		for range ticker.C {
 			services.GetMetrics(memStorage, neсMetrics)
 
-			for key, value := range memStorage.Gauges {
-				zap.L().Info("Gauges: ", zap.String("key", key), zap.Float64("value", value))
-			}
+			// for key, value := range memStorage.Gauges {
+			// 	zap.L().Info("Gauges: ", zap.String("key", key), zap.Float64("value", value))
+			// }
 
-			for key, value := range memStorage.Counters {
-				zap.L().Info("Counters: ", zap.String("key", key), zap.Int64("value", value))
-			}
+			// for key, value := range memStorage.Counters {
+			// 	zap.L().Info("Counters: ", zap.String("key", key), zap.Int64("value", value))
+			// }
 		}
 	}()
 
