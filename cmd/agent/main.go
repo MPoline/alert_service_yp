@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
 	"github.com/MPoline/alert_service_yp/internal/agent/services"
+	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/storage"
 	"go.uber.org/zap"
 )
@@ -25,13 +28,25 @@ var (
 )
 
 func main() {
+	logger, err := logging.InitLog()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error initializing logger:", err)
+	}
+	defer logger.Sync()
+
+	undo := zap.ReplaceGlobals(logger)
+	defer undo()
+
+	logger.Info("Run agent")
 	flags.ParseFlags()
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
+
 	wg.Add(2)
 
 	// Сбор метрик
 	go func() {
+		logger.Info("Run get metrics")
 		defer wg.Done()
 		ticker := time.NewTicker(pollInterval)
 		defer ticker.Stop()
@@ -51,6 +66,7 @@ func main() {
 
 	// Отправка метрик
 	go func() {
+		logger.Info("Run send metrics")
 		defer wg.Done()
 		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()

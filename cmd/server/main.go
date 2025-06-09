@@ -35,6 +35,7 @@ func main() {
 	}
 
 	storage.InitStorage(storageType)
+	logger.Info("Storage type: ", zap.String("storageType", storageType))
 
 	if storageType == "memory" {
 		if flags.FlagRestore {
@@ -58,5 +59,8 @@ func main() {
 
 	defer storage.MetricStorage.Close()
 
-	r.Run(flags.FlagRunAddr)
+	err = r.Run(flags.FlagRunAddr)
+	if err != nil {
+		logger.Warn("Error start server: ", zap.Error(err))
+	}
 }

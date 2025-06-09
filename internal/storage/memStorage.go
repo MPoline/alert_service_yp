@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ type MemStorage struct {
 }
 
 func NewMemStorage() *MemStorage {
+	zap.L().Info("Create NewMemStorage")
 	return &MemStorage{
 		Gauges:   make(map[string]float64),
 		Counters: make(map[string]int64),
@@ -55,32 +57,54 @@ func (s *MemStorage) IncrementCounter(name string, value int64) {
 	s.Counters[name] += value
 }
 
-func (s *MemStorage) GetAllMetrics() ([]models.Metrics, error) {
+func (s *MemStorage) GetAllMetrics(ctx context.Context) ([]models.Metrics, error) {
 	var allMetrics []models.Metrics
 
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	for metricName, metricValue := range s.Gauges {
-		metric := models.Metrics{
-			ID:    metricName,
-			MType: "gauge",
-			Value: &metricValue,
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			metric := models.Metrics{
+				ID:    metricName,
+				MType: "gauge",
+				Value: &metricValue,
+			}
+			allMetrics = append(allMetrics, metric)
 		}
-		allMetrics = append(allMetrics, metric)
 	}
 
 	for metricName, metricValue := range s.Counters {
-		metric := models.Metrics{
-			ID:    metricName,
-			MType: "counter",
-			Delta: &metricValue,
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			metric := models.Metrics{
+				ID:    metricName,
+				MType: "counter",
+				Delta: &metricValue,
+			}
+			allMetrics = append(allMetrics, metric)
 		}
-		allMetrics = append(allMetrics, metric)
 	}
 	return allMetrics, nil
 }
 
-func (s *MemStorage) GetMetric(metricType string, metricName string) (models.Metrics, error) {
+func (s *MemStorage) GetMetric(ctx context.Context, metricType string, metricName string) (models.Metrics, error) {
 	var found bool
 	var metric models.Metrics
+
+	select {
+	case <-ctx.Done():
+		return metric, ctx.Err()
+	default:
+	}
 
 	switch metricType {
 	case "gauge":
@@ -113,7 +137,12 @@ func (s *MemStorage) GetMetric(metricType string, metricName string) (models.Met
 	return metric, nil
 }
 
-func (s *MemStorage) UpdateMetric(metric models.Metrics) error {
+func (s *MemStorage) UpdateMetric(ctx context.Context, metric models.Metrics) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 
 	_, err := metric.IsValid()
 	if err != nil {
@@ -130,8 +159,14 @@ func (s *MemStorage) UpdateMetric(metric models.Metrics) error {
 	return nil
 }
 
-func (s *MemStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error {
+func (s *MemStorage) UpdateSliceOfMetrics(ctx context.Context, sliceMitrics models.SliceMetrics) error {
 	for _, metric := range sliceMitrics.Metrics {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if ok, err := metric.IsValid(); !ok {
 			zap.L().Info("Error in Metric Parametrs: ", zap.Error(err))
 			return err
@@ -139,6 +174,13 @@ func (s *MemStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) erro
 	}
 
 	for _, metric := range sliceMitrics.Metrics {
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		switch metric.MType {
 		case "gauge":
 			s.SetGauge(metric.ID, *metric.Value)

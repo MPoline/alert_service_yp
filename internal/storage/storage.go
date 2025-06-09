@@ -1,14 +1,18 @@
 package storage
 
-import "github.com/MPoline/alert_service_yp/internal/models"
+import (
+	"context"
+
+	"github.com/MPoline/alert_service_yp/internal/models"
+)
 
 var MetricStorage Storage
 
 type Storage interface {
-	GetAllMetrics() ([]models.Metrics, error)
-	GetMetric(metricType string, metricName string) (models.Metrics, error)
-	UpdateMetric(metric models.Metrics) error
-	UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error
+	GetAllMetrics(ctx context.Context) ([]models.Metrics, error)
+	GetMetric(ctx context.Context, metricType string, metricName string) (models.Metrics, error)
+	UpdateMetric(ctx context.Context, metric models.Metrics) error
+	UpdateSliceOfMetrics(ctx context.Context, sliceMitrics models.SliceMetrics) error
 	Close()
 }
 

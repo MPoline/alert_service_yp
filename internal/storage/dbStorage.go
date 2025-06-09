@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/MPoline/alert_service_yp/internal/models"
@@ -18,7 +19,7 @@ func NewDBStorage() *DBStorage {
 		zap.L().Fatal("Error opening database: ", zap.Error(err))
 	}
 
-	err = database.CreateMetricsTable(dbConn)
+	err = database.CreateMetricsTable(context.Background(), dbConn)
 	if err != nil {
 		zap.L().Fatal("Error create table metric: ", zap.Error(err))
 	}
@@ -32,8 +33,14 @@ func (s DBStorage) Close() {
 	database.CloseDBConnection(s.dbConn)
 }
 
-func (s DBStorage) GetAllMetrics() ([]models.Metrics, error) {
-	metrics, err := database.GetAllMetricsFromDB(s.dbConn)
+func (s DBStorage) GetAllMetrics(ctx context.Context) ([]models.Metrics, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	metrics, err := database.GetAllMetricsFromDB(ctx, s.dbConn)
 	if err != nil {
 		zap.L().Fatal("Error get all metric from table: ", zap.Error(err))
 		return nil, err
@@ -41,8 +48,14 @@ func (s DBStorage) GetAllMetrics() ([]models.Metrics, error) {
 	return metrics, nil
 }
 
-func (s DBStorage) GetMetric(metricType string, metricName string) (models.Metrics, error) {
-	metric, err := database.GetOneMetric(s.dbConn, metricName, metricType)
+func (s DBStorage) GetMetric(ctx context.Context, metricType string, metricName string) (models.Metrics, error) {
+	select {
+	case <-ctx.Done():
+		return models.Metrics{}, ctx.Err()
+	default:
+	}
+
+	metric, err := database.GetOneMetric(ctx, s.dbConn, metricName, metricType)
 	if err != nil {
 		zap.L().Error("Error get metric from table: ", zap.Error(err))
 		return metric, err
@@ -50,7 +63,13 @@ func (s DBStorage) GetMetric(metricType string, metricName string) (models.Metri
 	return metric, nil
 }
 
-func (s DBStorage) UpdateMetric(metric models.Metrics) error {
+func (s DBStorage) UpdateMetric(ctx context.Context, metric models.Metrics) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	_, err := metric.IsValid()
 	if err != nil {
 		zap.L().Info("Error in Metric Parametrs")
@@ -58,7 +77,7 @@ func (s DBStorage) UpdateMetric(metric models.Metrics) error {
 	}
 
 	if metric.MType == "counter" {
-		m, err := s.GetMetric(metric.MType, metric.ID)
+		m, err := s.GetMetric(ctx, metric.MType, metric.ID)
 
 		if err == nil {
 			*metric.Delta += *m.Delta
@@ -68,7 +87,7 @@ func (s DBStorage) UpdateMetric(metric models.Metrics) error {
 		}
 	}
 
-	err = database.CreateOrUpdateMetric(s.dbConn, metric)
+	err = database.CreateOrUpdateMetric(ctx, s.dbConn, metric)
 	if err != nil {
 		zap.L().Error("Error create/update metric from table: ", zap.Error(err))
 		return err
@@ -77,8 +96,14 @@ func (s DBStorage) UpdateMetric(metric models.Metrics) error {
 	return nil
 }
 
-func (s DBStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error {
+func (s DBStorage) UpdateSliceOfMetrics(ctx context.Context, sliceMitrics models.SliceMetrics) error {
 	for _, metric := range sliceMitrics.Metrics {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if ok, err := metric.IsValid(); !ok {
 			zap.L().Info("Error in Metric Parametrs: ", zap.Error(err))
 			return err
@@ -86,8 +111,14 @@ func (s DBStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error 
 	}
 
 	for _, metric := range sliceMitrics.Metrics {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if metric.MType == "counter" {
-			m, err := s.GetMetric(metric.MType, metric.ID)
+			m, err := s.GetMetric(ctx, metric.MType, metric.ID)
 
 			if err == nil {
 				*metric.Delta += *m.Delta
@@ -98,7 +129,7 @@ func (s DBStorage) UpdateSliceOfMetrics(sliceMitrics models.SliceMetrics) error 
 		}
 	}
 
-	err := database.CreateOrUpdateSliceOfMetrics(s.dbConn, sliceMitrics)
+	err := database.CreateOrUpdateSliceOfMetrics(ctx, s.dbConn, sliceMitrics)
 	if err != nil {
 		zap.L().Error("Error create/update metric from table: ", zap.Error(err))
 		return err

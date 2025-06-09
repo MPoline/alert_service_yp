@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"sync"
 	"time"
 
+	"github.com/MPoline/alert_service_yp/internal/agent/flags"
+	"github.com/MPoline/alert_service_yp/internal/hasher"
 	"github.com/MPoline/alert_service_yp/internal/models"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/go-resty/resty/v2"
@@ -18,30 +21,52 @@ var (
 )
 
 func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
+	var wg sync.WaitGroup
+	resultCh := make(chan models.Metrics, len(s.Gauges)+len(s.Counters))
 
-	for gaugeName, gaugeValue := range s.Gauges {
-		m = models.Metrics{
-			ID:    gaugeName,
-			MType: "gauge",
-			Value: &gaugeValue,
-		}
-		metricsStorage = append(metricsStorage, m)
-	}
+	wg.Add(2)
 
-	for counterName, counterValue := range s.Counters {
-		m = models.Metrics{
-			ID:    counterName,
-			MType: "counter",
-			Delta: &counterValue,
+	go func() {
+		defer wg.Done()
+		s.Mu.Lock()
+		defer s.Mu.Unlock()
+
+		for gaugeName, gaugeValue := range s.Gauges {
+			m = models.Metrics{
+				ID:    gaugeName,
+				MType: "gauge",
+				Value: &gaugeValue,
+			}
+			resultCh <- m
 		}
-		metricsStorage = append(metricsStorage, m)
+	}()
+
+	go func() {
+		defer wg.Done()
+		s.Mu.Lock()
+		defer s.Mu.Unlock()
+
+		for counterName, counterValue := range s.Counters {
+			m = models.Metrics{
+				ID:    counterName,
+				MType: "counter",
+				Delta: &counterValue,
+			}
+			resultCh <- m
+		}
+	}()
+
+	wg.Wait()
+	close(resultCh)
+
+	for metric := range resultCh {
+		metricsStorage = append(metricsStorage, metric)
 	}
-	return
+	return metricsStorage
 }
 
 func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
+	zap.L().Info("Start SendMetrics")
 	client := resty.New()
 
 	batch := map[string][]models.Metrics{"metrics": metricsStorage}
@@ -50,6 +75,13 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	jsonBody, err := json.Marshal(batch)
 	if err != nil {
 		zap.L().Error("Failed to marshal batch of metrics: ", zap.Error(err))
+		return
+	}
+
+	h := hasher.InitHasher("SHA256")
+	hash, err := h.CalculateHash(jsonBody, []byte(flags.FlagKey))
+	if err != nil {
+		zap.L().Error("Failed calculate sha256: ", zap.Error(err))
 		return
 	}
 
@@ -69,6 +101,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 		req := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
+			SetHeader("HashSHA256", string(hash)).
 			SetBody(compressedData)
 
 		resp, err := req.Post(serverURL)

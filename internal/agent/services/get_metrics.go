@@ -6,9 +6,11 @@ import (
 	"runtime"
 
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
+	"go.uber.org/zap"
 )
 
 func GetMetrics(s *storage.MemStorage, neсMetrics []string) {
+	zap.L().Info("Start GetMetrics")
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
