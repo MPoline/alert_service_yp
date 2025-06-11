@@ -9,6 +9,7 @@ import (
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
 	"github.com/MPoline/alert_service_yp/internal/agent/services"
 	"github.com/MPoline/alert_service_yp/internal/logging"
+	"github.com/MPoline/alert_service_yp/internal/models"
 	"github.com/MPoline/alert_service_yp/internal/storage"
 	"go.uber.org/zap"
 )
@@ -25,6 +26,7 @@ var (
 	}
 	memStorage = storage.NewMemStorage()
 	wg         sync.WaitGroup
+	sendCh     = make(chan []models.Metrics, 50)
 )
 
 func main() {
@@ -38,44 +40,51 @@ func main() {
 	defer undo()
 
 	logger.Info("Run agent")
+
 	flags.ParseFlags()
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
 
-	wg.Add(2)
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		var workersWG sync.WaitGroup
+		workersWG.Add(int(flags.FlagRateLimit))
+
+		for i := 0; i < int(flags.FlagRateLimit); i++ {
+			go func(id int) {
+				defer workersWG.Done()
+				for metrics := range sendCh {
+					services.SendMetrics(memStorage, metrics)
+				}
+			}(i)
+		}
+		workersWG.Wait()
+	}()
 
 	// Сбор метрик
 	go func() {
-		logger.Info("Run get metrics")
 		defer wg.Done()
 		ticker := time.NewTicker(pollInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
 			services.GetMetrics(memStorage, neсMetrics)
-
-			// for key, value := range memStorage.Gauges {
-			// 	zap.L().Info("Gauges: ", zap.String("key", key), zap.Float64("value", value))
-			// }
-
-			// for key, value := range memStorage.Counters {
-			// 	zap.L().Info("Counters: ", zap.String("key", key), zap.Int64("value", value))
-			// }
 		}
 	}()
 
 	// Отправка метрик
 	go func() {
-		logger.Info("Run send metrics")
 		defer wg.Done()
 		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
 			metricStorage := services.CreateMetrics(memStorage)
-			services.SendMetrics(memStorage, metricStorage)
+			sendCh <- metricStorage
 		}
 	}()
-
 	wg.Wait()
+	close(sendCh)
 }
