@@ -13,24 +13,31 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
+var (
+	ErrInvalidMetricName   = errors.New("InvalidMetricName")
+	ErrInvalidMetricType   = errors.New("InvalidMetricType")
+	ErrInvalidCounterValue = errors.New("InvalidCounterValue")
+	ErrInvalidGaugeValue   = errors.New("InvalidGaugeValue")
+)
+
 func (m Metrics) IsValid() (bool, error) {
 	if m.ID == "" {
-		return false, errors.New("InvalidMetricName")
+		return false, ErrInvalidMetricName
 	}
 
 	if m.MType == "gauge" {
 		if m.Delta == nil && m.Value != nil {
 			return true, nil
 		}
-		return false, errors.New("InvalidGaugeValue")
+		return false, ErrInvalidGaugeValue
 	}
 
 	if m.MType == "counter" {
 		if m.Value == nil && m.Delta != nil {
 			return true, nil
 		}
-		return false, errors.New("InvalidCounterValue")
+		return false, ErrInvalidCounterValue
 	}
 
-	return false, errors.New("InvalidMetricType")
+	return false, ErrInvalidMetricType
 }

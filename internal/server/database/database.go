@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
@@ -38,7 +39,7 @@ func CloseDBConnection(db *sql.DB) {
 	}
 }
 
-func CreateMetricsTable(db *sql.DB) error {
+func CreateMetricsTable(ctx context.Context, db *sql.DB) error {
 	createQuery := ` CREATE TABLE IF NOT EXISTS metrics ( 
 		id TEXT, 
 		m_type TEXT CHECK(m_type IN ('gauge', 'counter')), 
@@ -47,7 +48,7 @@ func CreateMetricsTable(db *sql.DB) error {
 		PRIMARY KEY (id, m_type)
 	); `
 
-	_, err := db.Exec(createQuery)
+	_, err := db.ExecContext(ctx, createQuery)
 	if err != nil {
 		handlePGError(err)
 		return err
@@ -56,8 +57,8 @@ func CreateMetricsTable(db *sql.DB) error {
 	return nil
 }
 
-func CreateOrUpdateMetric(db *sql.DB, metric models.Metrics) error {
-	_, err := db.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
+func CreateOrUpdateMetric(ctx context.Context, db *sql.DB, metric models.Metrics) error {
+	_, err := db.ExecContext(ctx, createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 	if err != nil {
 		handlePGError(err)
 		return err
@@ -66,14 +67,14 @@ func CreateOrUpdateMetric(db *sql.DB, metric models.Metrics) error {
 	return nil
 }
 
-func CreateOrUpdateSliceOfMetrics(db *sql.DB, metrics models.SliceMetrics) error {
-	tx, err := db.Begin()
+func CreateOrUpdateSliceOfMetrics(ctx context.Context, db *sql.DB, metrics models.SliceMetrics) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	for _, metric := range metrics.Metrics {
-		_, err := tx.Exec(createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
+		_, err := tx.ExecContext(ctx, createOrUpdateQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 		if err != nil {
 			handlePGError(err)
 			tx.Rollback()
@@ -84,10 +85,10 @@ func CreateOrUpdateSliceOfMetrics(db *sql.DB, metrics models.SliceMetrics) error
 	return tx.Commit()
 }
 
-func GetAllMetricsFromDB(db *sql.DB) ([]models.Metrics, error) {
+func GetAllMetricsFromDB(ctx context.Context, db *sql.DB) ([]models.Metrics, error) {
 	var metrics []models.Metrics
 
-	rows, err := db.Query(`SELECT id, m_type, delta, value FROM metrics`)
+	rows, err := db.QueryContext(ctx, `SELECT id, m_type, delta, value FROM metrics`)
 	if err != nil {
 		handlePGError(err)
 		return nil, err
@@ -111,10 +112,10 @@ func GetAllMetricsFromDB(db *sql.DB) ([]models.Metrics, error) {
 	return metrics, nil
 }
 
-func GetOneMetric(db *sql.DB, id string, mType string) (models.Metrics, error) {
+func GetOneMetric(ctx context.Context, db *sql.DB, id string, mType string) (models.Metrics, error) {
 	var metric models.Metrics
 
-	row := db.QueryRow(` SELECT id, m_type, delta, value FROM metrics WHERE id=$1 AND m_type=$2`,
+	row := db.QueryRowContext(ctx, ` SELECT id, m_type, delta, value FROM metrics WHERE id=$1 AND m_type=$2`,
 		id, mType)
 
 	err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)

@@ -12,6 +12,8 @@ var (
 	FlagRunAddr        string
 	FlagReportInterval int64
 	FlagPollInterval   int64
+	FlagKey            string
+	FlagRateLimit      int64
 )
 
 func ParseFlags() {
@@ -19,6 +21,8 @@ func ParseFlags() {
 	flag.StringVar(&FlagRunAddr, "a", ":8080", "address and port to run server")
 	flag.Int64Var(&FlagReportInterval, "r", 10, "frequency of sending metrics to the server")
 	flag.Int64Var(&FlagPollInterval, "p", 2, "frequency of polling metrics")
+	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
+	flag.Int64Var(&FlagRateLimit, "l", 5, "rateLimit workers")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -43,4 +47,22 @@ func ParseFlags() {
 			zap.L().Info("Error parse POLL_INTERVAL", zap.Error(err))
 		}
 	}
+	if envKey := os.Getenv("KEY"); envKey != "" {
+		zap.L().Info("KEY: ", zap.String("envKey", envKey))
+		FlagKey = envKey
+	}
+	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
+		FlagRateLimit, err = strconv.ParseInt(envRateLimit, 10, 64)
+		if err != nil {
+			zap.L().Info("Error parse RATE_LIMIT", zap.Error(err))
+		}
+	}
+
+	zap.L().Info(
+		"Server settings",
+		zap.String("Running server address: ", FlagRunAddr),
+		zap.Int64("Running database address: ", FlagReportInterval),
+		zap.Int64("Store metrics interval: ", FlagPollInterval),
+		zap.String("Store path: ", FlagKey),
+	)
 }

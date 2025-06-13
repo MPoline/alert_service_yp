@@ -14,6 +14,7 @@ var (
 	FlagFileStoragePath string
 	FlagRestore         bool
 	FlagDatabaseDSN     string
+	FlagKey             string
 )
 
 func ParseFlags() {
@@ -23,6 +24,7 @@ func ParseFlags() {
 	flag.StringVar(&FlagFileStoragePath, "f", "./savedMetrics", "address of file for save metrics")
 	flag.BoolVar(&FlagRestore, "r", false, "read metrics from file")
 	flag.StringVar(&FlagDatabaseDSN, "d", "", "address and port to run database")
+	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -58,6 +60,11 @@ func ParseFlags() {
 	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
 		zap.L().Info("DATABASE_DSN: ", zap.String("envDatabaseDNS", envDatabaseDSN))
 		FlagDatabaseDSN = envDatabaseDSN
+	}
+
+	if envKey := os.Getenv("KEY"); envKey != "" {
+		zap.L().Info("KEY: ", zap.String("envKey", envKey))
+		FlagKey = envKey
 	}
 
 	zap.L().Info(

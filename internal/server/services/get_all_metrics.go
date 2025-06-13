@@ -11,6 +11,7 @@ import (
 )
 
 func GetAllMetrics(c *gin.Context) {
+	ctx := c.Request.Context()
 
 	if len(c.Request.URL.String()) != 1 {
 		c.JSON(http.StatusNotFound, gin.H{"Error": "Method not found"})
@@ -21,7 +22,7 @@ func GetAllMetrics(c *gin.Context) {
 	var sb strings.Builder
 	sb.WriteString("<html><body><h1>Metrics</h1><ul>")
 
-	metrics, err := storage.MetricStorage.GetAllMetrics()
+	metrics, err := storage.MetricStorage.GetAllMetrics(ctx)
 
 	if err != nil {
 		sb.WriteString("<li> Error getting metric </li>")
