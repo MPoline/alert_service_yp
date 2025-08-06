@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -13,6 +15,10 @@ import (
 )
 
 func main() {
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
+
 	logger, err := logging.InitLog()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error initializing logger:", err)

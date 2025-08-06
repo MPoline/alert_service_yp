@@ -6,70 +6,98 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
+var (
+	gzipWriterPool = sync.Pool{
+		New: func() interface{} {
+			w, _ := gzip.NewWriterLevel(nil, gzip.DefaultCompression)
+			return w
+		},
+	}
+
+	gzipReaderPool = sync.Pool{
+		New: func() interface{} {
+			return new(gzip.Reader)
+		},
+	}
+)
+
 type gzipWriter struct {
 	gin.ResponseWriter
-	io.Writer
 	writer *gzip.Writer
+	buf    *bytes.Buffer
 }
 
 func (gzw *gzipWriter) Write(b []byte) (int, error) {
 	return gzw.writer.Write(b)
 }
 
+func (gzw *gzipWriter) Close() {
+	gzw.writer.Close()
+	gzipWriterPool.Put(gzw.writer)
+}
+
 func GZipDecompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.EqualFold(c.GetHeader("Content-Encoding"), "gzip") {
-			gzr, err := gzip.NewReader(c.Request.Body)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request"})
-				zap.L().Error("Failed to decode compressed request: ", zap.Error(err))
-				return
-			}
-			defer gzr.Close()
-
-			body, err := io.ReadAll(gzr)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to read compressed request"})
-				zap.L().Error("Failed to read compressed request: ", zap.Error(err))
-				return
-			}
-
-			c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		if !strings.EqualFold(c.GetHeader("Content-Encoding"), "gzip") {
+			c.Next()
+			return
 		}
 
+		gzr := gzipReaderPool.Get().(*gzip.Reader)
+		defer gzipReaderPool.Put(gzr)
+
+		if err := gzr.Reset(c.Request.Body); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request"})
+			zap.L().Error("Failed to decode compressed request", zap.Error(err))
+			return
+		}
+		defer gzr.Close()
+
+		body, err := io.ReadAll(gzr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"Error": "Failed to read compressed request"})
+			zap.L().Error("Failed to read compressed request", zap.Error(err))
+			return
+		}
+
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		c.Request.ContentLength = int64(len(body))
 		c.Next()
 	}
 }
 
 func GZipCompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") || !(c.ContentType() == "application/json" || c.ContentType() == "text/html") {
+		acceptEncoding := c.GetHeader("Accept-Encoding")
+		contentType := c.GetHeader("Content-Type")
+
+		if !strings.Contains(acceptEncoding, "gzip") ||
+			!(strings.Contains(contentType, "application/json") ||
+				strings.Contains(contentType, "text/html")) {
 			c.Next()
 			return
 		}
 
-		c.Writer.Header().Set("Content-Encoding", "gzip")
-
-		// Создаем gzip.Writer поверх существующего response writer
-		gzw, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed to decode compressed request"})
-			zap.L().Error("Failed to decode compressed request: ", zap.Error(err))
-			return
-		}
-		defer gzw.Close()
-
-		// Перехватываем оригинальный писатель
-		c.Writer = &gzipWriter{
+		gzw := gzipWriterPool.Get().(*gzip.Writer)
+		gzipWriter := &gzipWriter{
 			ResponseWriter: c.Writer,
 			writer:         gzw,
 		}
+		gzipWriter.writer.Reset(c.Writer)
+		defer gzipWriter.Close()
+
+		c.Writer = gzipWriter
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+		c.Header("Content-Type", contentType)
 		c.Writer.Header().Del("Content-Length")
+
 		c.Next()
 	}
 }
