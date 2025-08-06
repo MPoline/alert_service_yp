@@ -1,6 +1,5 @@
 package hasher
 
-
 type Hasher interface {
 	CalculateHash([]byte, []byte) ([]byte, error)
 }
