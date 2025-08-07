@@ -1,3 +1,4 @@
+// Package services содержит бизнес-логику обработки HTTP-запросов сервера метрик.
 package services
 
 import (
@@ -7,6 +8,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CheckDBConnection обрабатывает запрос проверки соединения с базой данных.
+//
+// Эндпоинт: GET /ping
+//
+// Логика работы:
+//  1. Устанавливает соединение с БД
+//  2. Проверяет доступность БД методом Ping()
+//  3. Возвращает результат проверки
+//
+// Возможные ответы:
+//  - 200 OK: соединение успешно установлено
+//    Тело ответа: "Successful connection to the database"
+//  - 500 Internal Server Error: ошибка соединения
+//    Тело ответа: {"Error": "Error opening database"} 
+//                или {"Error": "Error checking database connection"}
+//
+// Пример использования:
+//  router := gin.Default()
+//  router.GET("/ping", services.CheckDBConnection)
 func CheckDBConnection(c *gin.Context) {
 	db, err := database.OpenDBConnection()
 	if err != nil {

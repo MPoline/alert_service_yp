@@ -1,3 +1,4 @@
+// Package services предоставляет функциональность для сбора, обработки и отправки метрик.
 package services
 
 import (
@@ -9,6 +10,21 @@ import (
 	"go.uber.org/zap"
 )
 
+// GetMetrics собирает метрики из runtime и сохраняет в хранилище
+//
+// Параметры:
+//   - s *storage.MemStorage: хранилище метрик
+//   - neсMetrics []string: список собираемых метрик
+//
+// Собираемые метрики:
+//   - Все gauge-метрики из neсMetrics
+//   - RandomValue (случайное значение)
+//   - PollCount (счетчик вызовов)
+//
+// Пример использования:
+//
+//	s := storage.NewMemStorage()
+//	GetMetrics(s, neсMetrics)
 func GetMetrics(s *storage.MemStorage, neсMetrics []string) {
 	zap.L().Info("Start GetMetrics")
 	s.Mu.Lock()

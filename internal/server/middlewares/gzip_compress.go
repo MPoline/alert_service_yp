@@ -1,3 +1,4 @@
+// Package middlewares предоставляет HTTP middleware для обработки сжатия Gzip.
 package middlewares
 
 import (
@@ -27,6 +28,8 @@ var (
 	}
 )
 
+// gzipWriter оборачивает gin.ResponseWriter для прозрачного сжатия Gzip.
+// Реализует интерфейс io.Writer.
 type gzipWriter struct {
 	gin.ResponseWriter
 	writer *gzip.Writer
@@ -42,6 +45,12 @@ func (gzw *gzipWriter) Close() {
 	gzipWriterPool.Put(gzw.writer)
 }
 
+// GZipDecompress возвращает middleware для распаковки входящих Gzip-запросов.
+// Проверяет заголовок Content-Encoding: gzip и автоматически распаковывает тело запроса.
+//
+// Пример использования:
+//  router := gin.Default()
+//  router.Use(GZipDecompress())
 func GZipDecompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !strings.EqualFold(c.GetHeader("Content-Encoding"), "gzip") {
@@ -72,6 +81,13 @@ func GZipDecompress() gin.HandlerFunc {
 	}
 }
 
+// GZipCompress возвращает middleware для сжатия исходящих ответов в Gzip.
+// Сжимает только ответы с Content-Type: application/json или text/html.
+// Проверяет заголовок Accept-Encoding запроса на наличие gzip.
+//
+// Пример использования:
+//  router := gin.Default()
+//  router.Use(GZipCompress())
 func GZipCompress() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		acceptEncoding := c.GetHeader("Accept-Encoding")

@@ -19,6 +19,48 @@ import (
 	"go.uber.org/zap"
 )
 
+// UpdateMetricFromJSON обрабатывает запрос на обновление метрики в JSON-формате с проверкой подписи.
+//
+// Эндпоинт: POST /update/
+//
+// Логика работы:
+//  1. Читает и проверяет тело запроса
+//  2. Валидирует подпись HMAC-SHA256
+//  3. Обновляет метрику в хранилище
+//  4. Возвращает обновленную метрику с заголовками
+//
+// Формат запроса:
+//
+//	{
+//	  "id": "metricName",
+//	  "type": "gauge|counter",
+//	  "value": 123.45,    // для gauge
+//	  "delta": 42         // для counter
+//	}
+//
+// Заголовки:
+//   - HashSHA256: обязательная подпись тела запроса (base64)
+//   - Content-Type: application/json
+//
+// Возможные ответы:
+//   - 200 OK: успешное обновление
+//     Тело: обновленная метрика в JSON
+//   - 400 Bad Request: неверный формат, ошибка валидации
+//   - 404 Not Found: обязательные параметры отсутствуют
+//   - 500 Internal Server Error: ошибка сервера
+//
+// Пример:
+//
+//	Запрос:
+//	  POST /update/
+//	  Headers:
+//	    Content-Type: application/json
+//	    HashSHA256: <base64-hmac-sha256>
+//	  Body:
+//	    {"id":"alloc","type":"gauge","value":123.45}
+//
+//	Ответ:
+//	  {"id":"alloc","type":"gauge","value":123.45}
 func UpdateMetricFromJSON(c *gin.Context) {
 
 	var (
@@ -90,6 +132,32 @@ func UpdateMetricFromJSON(c *gin.Context) {
 	c.String(http.StatusOK, string(respBytes))
 }
 
+// UpdateMetricFromURL обрабатывает запрос на обновление метрики через URL параметры.
+//
+// Эндпоинт: POST /update/:type/:name/:value
+//
+// Логика работы:
+//  1. Извлекает параметры из URL
+//  2. Парсит значение в соответствии с типом метрики
+//  3. Обновляет метрику в хранилище
+//
+// Параметры URL:
+//   - type: "gauge" или "counter"
+//   - name: имя метрики
+//   - value: значение (float64 для gauge, int64 для counter)
+//
+// Возможные ответы:
+//   - 200 OK: успешное обновление
+//   - 400 Bad Request: неверный тип или значение
+//   - 404 Not Found: отсутствуют обязательные параметры
+//
+// Примеры:
+//
+//	Запрос:
+//	  POST /update/gauge/alloc/123.45
+//
+//	Запрос:
+//	  POST /update/counter/pollCount/1
 func UpdateMetricFromURL(c *gin.Context) {
 
 	var req models.Metrics

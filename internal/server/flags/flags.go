@@ -1,3 +1,11 @@
+// Package flags предоставляет функциональность для обработки флагов командной строки
+// и переменных окружения сервера метрик.
+//
+// Пакет поддерживает:
+//   - Парсинг флагов командной строки
+//   - Чтение значений из переменных окружения
+//   - Приоритет переменных окружения над флагами
+//   - Валидацию и логирование параметров
 package flags
 
 import (
@@ -8,15 +16,43 @@ import (
 	"go.uber.org/zap"
 )
 
+// Глобальные переменные с параметрами сервера
 var (
-	FlagRunAddr         string
-	FlagStoreInterval   int64
+	// FlagRunAddr - адрес и порт для запуска сервера (флаг -a, переменная ADDRESS)
+	FlagRunAddr string
+
+	// FlagStoreInterval - интервал сохранения метрик в секундах (флаг -i, переменная STORE_INTERVAL)
+	FlagStoreInterval int64
+
+	// FlagFileStoragePath - путь к файлу для сохранения метрик (флаг -f, переменная FILE_STORAGE_PATH)
 	FlagFileStoragePath string
-	FlagRestore         bool
-	FlagDatabaseDSN     string
-	FlagKey             string
+
+	// FlagRestore - флаг восстановления метрик из файла при старте (флаг -r, переменная RESTORE)
+	FlagRestore bool
+
+	// FlagDatabaseDSN - строка подключения к БД (флаг -d, переменная DATABASE_DSN)
+	FlagDatabaseDSN string
+
+	// FlagKey - ключ для подписи данных (флаг -k, переменная KEY)
+	FlagKey string
 )
 
+// ParseFlags обрабатывает аргументы командной строки и переменные окружения.
+// Приоритет значений: переменные окружения > флаги командной строки > значения по умолчанию.
+//
+// Поддерживаемые флаги:
+//
+//	-a : адрес сервера (по умолчанию ":8080")
+//	-i : интервал сохранения в секундах (по умолчанию 300)
+//	-f : путь к файлу метрик (по умолчанию "./savedMetrics")
+//	-r : восстановить метрики из файла (по умолчанию false)
+//	-d : строка подключения к БД (по умолчанию "")
+//	-k : ключ для подписи (по умолчанию "+randomSrting+")
+//
+// Пример использования:
+//
+//	flags.ParseFlags()
+//	addr := flags.FlagRunAddr
 func ParseFlags() {
 	var err error
 	flag.StringVar(&FlagRunAddr, "a", ":8080", "address and port to run server")

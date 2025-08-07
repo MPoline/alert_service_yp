@@ -1,3 +1,11 @@
+// Package flags предоставляет функциональность для обработки флагов командной строки
+// и переменных окружения агента сбора метрик.
+//
+// Пакет поддерживает:
+// - Парсинг флагов командной строки
+// - Чтение значений из переменных окружения
+// - Приоритет переменных окружения над флагами
+// - Валидацию и логирование параметров
 package flags
 
 import (
@@ -8,14 +16,47 @@ import (
 	"go.uber.org/zap"
 )
 
+// Глобальные переменные с параметрами агента
 var (
-	FlagRunAddr        string
+	// FlagRunAddr - адрес и порт сервера (флаг -a, переменная ADDRESS)
+	FlagRunAddr string
+
+	// FlagReportInterval - интервал отправки метрик на сервер в секундах (флаг -r, переменная REPORT_INTERVAL)
 	FlagReportInterval int64
-	FlagPollInterval   int64
-	FlagKey            string
-	FlagRateLimit      int64
+
+	// FlagPollInterval - интервал сбора метрик в секундах (флаг -p, переменная POLL_INTERVAL)
+	FlagPollInterval int64
+
+	// FlagKey - ключ для подписи данных (флаг -k, переменная KEY)
+	FlagKey string
+
+	// FlagRateLimit - лимит одновременных запросов (флаг -l, переменная RATE_LIMIT)
+	FlagRateLimit int64
 )
 
+// ParseFlags обрабатывает аргументы командной строки и переменные окружения.
+// Приоритет значений: переменные окружения > флаги командной строки > значения по умолчанию.
+//
+// Поддерживаемые флаги:
+//
+//	-a : адрес сервера (по умолчанию ":8080")
+//	-r : интервал отправки метрик в секундах (по умолчанию 10)
+//	-p : интервал сбора метрик в секундах (по умолчанию 2)
+//	-k : ключ для подписи (по умолчанию "+randomSrting+")
+//	-l : лимит одновременных запросов (по умолчанию 5)
+//
+// Поддерживаемые переменные окружения:
+//
+//	ADDRESS
+//	REPORT_INTERVAL
+//	POLL_INTERVAL
+//	KEY
+//	RATE_LIMIT
+//
+// Пример использования:
+//
+//	flags.ParseFlags()
+//	addr := flags.FlagRunAddr
 func ParseFlags() {
 	var err error
 	flag.StringVar(&FlagRunAddr, "a", ":8080", "address and port to run server")
@@ -59,10 +100,11 @@ func ParseFlags() {
 	}
 
 	zap.L().Info(
-		"Server settings",
-		zap.String("Running server address: ", FlagRunAddr),
-		zap.Int64("Running database address: ", FlagReportInterval),
-		zap.Int64("Store metrics interval: ", FlagPollInterval),
-		zap.String("Store path: ", FlagKey),
+		"Agent settings",
+		zap.String("Server address", FlagRunAddr),
+		zap.Int64("Report interval (sec)", FlagReportInterval),
+		zap.Int64("Poll interval (sec)", FlagPollInterval),
+		zap.String("Hash key", "[REDACTED]"), 
+		zap.Int64("Rate limit", FlagRateLimit),
 	)
 }

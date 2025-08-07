@@ -17,6 +17,54 @@ import (
 	"go.uber.org/zap"
 )
 
+// GetMetricFromJSON обрабатывает запрос на получение метрики в JSON-формате с проверкой подписи.
+//
+// Эндпоинт: GET /value/
+//
+// Логика работы:
+//  1. Читает тело запроса
+//  2. Проверяет подпись HMAC-SHA256 (если включено)
+//  3. Десериализует JSON в структуру Metrics
+//  4. Получает метрику из хранилища
+//  5. Возвращает метрику в JSON-формате с подписью
+//
+// Формат запроса:
+//
+//	{
+//	  "id": "metricName",
+//	  "type": "gauge|counter"
+//	}
+//
+// Формат ответа:
+//
+//	{
+//	  "id": "metricName",
+//	  "type": "gauge|counter",
+//	  "value": 123.45,    // для gauge
+//	  "delta": 42         // для counter
+//	}
+//
+// Заголовки:
+//   - HashSHA256: подпись тела запроса (обязательный)
+//
+// Возможные ответы:
+//   - 200 OK: успешное получение метрики
+//   - 400 Bad Request: неверный формат запроса, ошибка проверки подписи
+//   - 404 Not Found: метрика не найдена
+//   - 500 Internal Server Error: ошибка сервера
+//
+// Пример использования:
+//
+//	Запрос:
+//	  GET /value/
+//	  Headers:
+//	    Content-Type: application/json
+//	    HashSHA256: <base64-encoded-hmac-sha256>
+//	  Body:
+//	    {"id":"alloc","type":"gauge"}
+//
+//	Ответ:
+//	  {"id":"alloc","type":"gauge","value":123.456}
 func GetMetricFromJSON(c *gin.Context) {
 	var (
 		req  models.Metrics
@@ -82,6 +130,37 @@ func GetMetricFromJSON(c *gin.Context) {
 	c.String(http.StatusOK, string(respBytes))
 }
 
+// GetMetricFromURL обрабатывает запрос на получение метрики через URL параметры.
+//
+// Эндпоинт: GET /value/:type/:name
+//
+// Логика работы:
+//  1. Извлекает тип и имя метрики из URL
+//  2. Получает метрику из хранилища
+//  3. Возвращает значение метрики в текстовом формате
+//
+// Параметры URL:
+//  - type: тип метрики (gauge или counter)
+//  - name: имя метрики
+//
+// Возможные ответы:
+//  - 200 OK: успешное получение метрики
+//    Тело: строковое значение метрики
+//  - 400 Bad Request: неверный тип метрики
+//  - 404 Not Found: метрика не найдена или не указано имя
+//
+// Примеры:
+//  Запрос:
+//    GET /value/gauge/alloc
+//
+//  Ответ:
+//    123.456
+//
+//  Запрос:
+//    GET /value/counter/pollCount
+//
+//  Ответ:
+//    42
 func GetMetricFromURL(c *gin.Context) {
 	metricType := c.Param("type")
 	metricName := c.Param("name")

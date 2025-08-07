@@ -18,6 +18,59 @@ import (
 	"go.uber.org/zap"
 )
 
+// UpdateSliceOfMetrics обрабатывает запрос на массовое обновление метрик с проверкой подписи.
+//
+// Эндпоинт: POST /updates/
+//
+// Логика работы:
+//  1. Читает тело запроса
+//  2. Проверяет подпись HMAC-SHA256
+//  3. Десериализует JSON в SliceMetrics
+//  4. Обновляет метрики в хранилище (в транзакции)
+//  5. Возвращает обновленные метрики
+//
+// Формат запроса:
+//
+//	{
+//	  "metrics": [
+//	    {"id": "metric1", "type": "gauge", "value": 123.45},
+//	    {"id": "metric2", "type": "counter", "delta": 42}
+//	  ]
+//	}
+//
+// Заголовки:
+//   - HashSHA256: обязательная подпись тела запроса (base64)
+//   - Content-Type: application/json
+//
+// Возможные ответы:
+//   - 200 OK: успешное обновление
+//     Тело: обновленные метрики в JSON
+//   - 400 Bad Request: неверный формат, ошибка валидации или подписи
+//   - 404 Not Found: обязательные параметры отсутствуют
+//   - 500 Internal Server Error: ошибка сервера
+//
+// Пример:
+//
+//	Запрос:
+//	  POST /updates/
+//	  Headers:
+//	    Content-Type: application/json
+//	    HashSHA256: <base64-hmac-sha256>
+//	  Body:
+//	    {
+//	      "metrics": [
+//	        {"id":"alloc","type":"gauge","value":123.45},
+//	        {"id":"pollCount","type":"counter","delta":1}
+//	      ]
+//	    }
+//
+//	Ответ:
+//	  {
+//	    "metrics": [
+//	      {"id":"alloc","type":"gauge","value":123.45},
+//	      {"id":"pollCount","type":"counter","delta":1}
+//	    ]
+//	  }
 func UpdateSliceOfMetrics(c *gin.Context) {
 	var req models.SliceMetrics
 
