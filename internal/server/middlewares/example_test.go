@@ -72,7 +72,12 @@ func ExampleRequestLogger() {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	_, _ = http.Get(ts.URL + "/test")
+	resp, err := http.Get(ts.URL + "/test")
+	if err != nil {
+		// handle error
+		return
+	}
+	defer resp.Body.Close()
 }
 
 func ExampleResponseLogger() {
@@ -89,7 +94,12 @@ func ExampleResponseLogger() {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	_, _ = http.Post(ts.URL+"/data", "application/json", nil)
+	resp, err := http.Post(ts.URL+"/data", "application/json", nil)
+	if err != nil {
+		// handle error
+		return
+	}
+	defer resp.Body.Close()
 }
 
 func TestMiddlewares(t *testing.T) {
