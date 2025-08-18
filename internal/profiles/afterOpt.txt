@@ -1,0 +1,48 @@
+File: server
+Type: inuse_space
+Time: 2025-08-06 08:24:30 MSK
+Showing nodes accounting for -1173.41kB, 32.39% of 3622.67kB total
+      flat  flat%   sum%        cum   cum%
+   -2565kB 70.80% 70.80%    -2565kB 70.80%  runtime.allocm
+  902.59kB 24.91% 45.89%   357.92kB  9.88%  compress/flate.NewWriter (inline)
+ -544.67kB 15.03% 60.92%  -544.67kB 15.03%  compress/flate.(*compressor).initDeflate (inline)
+  521.05kB 14.38% 46.54%   521.05kB 14.38%  github.com/lib/pq.map.init.0
+  512.62kB 14.15% 32.39%   512.62kB 14.15%  regexp.onePassCopy
+         0     0% 32.39%  -544.67kB 15.03%  compress/flate.(*compressor).init
+         0     0% 32.39%   357.92kB  9.88%  compress/gzip.(*Writer).Write
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipCompress.func1
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipDecompress.func2
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.RequestLogger.func3
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.ResponseLogger.func4
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/middlewares.(*gzipWriter).Write
+         0     0% 32.39%   357.92kB  9.88%  github.com/MPoline/alert_service_yp/internal/server/services.UpdateMetricFromJSON
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.(*Context).JSON (inline)
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.(*Context).Next (partial-inline)
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.(*Context).Render
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.(*Engine).ServeHTTP
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.CustomRecoveryWithWriter.func1
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin.LoggerWithConfig.func1
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin/render.JSON.Render
+         0     0% 32.39%   357.92kB  9.88%  github.com/gin-gonic/gin/render.WriteJSON
+         0     0% 32.39%   521.05kB 14.38%  github.com/lib/pq.init
+         0     0% 32.39%   512.62kB 14.15%  gopkg.in/yaml%2ev3.init
+         0     0% 32.39%   357.92kB  9.88%  net/http.(*conn).serve
+         0     0% 32.39%   357.92kB  9.88%  net/http.serverHandler.ServeHTTP
+         0     0% 32.39%   512.62kB 14.15%  regexp.Compile (inline)
+         0     0% 32.39%   512.62kB 14.15%  regexp.MustCompile
+         0     0% 32.39%   512.62kB 14.15%  regexp.compile
+         0     0% 32.39%   512.62kB 14.15%  regexp.compileOnePass
+         0     0% 32.39%  1033.68kB 28.53%  runtime.doInit (inline)
+         0     0% 32.39%  1033.68kB 28.53%  runtime.doInit1
+         0     0% 32.39%  1033.68kB 28.53%  runtime.main
+         0     0% 32.39%     -513kB 14.16%  runtime.mcall
+         0     0% 32.39%    -2052kB 56.64%  runtime.mstart
+         0     0% 32.39%    -2052kB 56.64%  runtime.mstart0
+         0     0% 32.39%    -2052kB 56.64%  runtime.mstart1
+         0     0% 32.39%    -2565kB 70.80%  runtime.newm
+         0     0% 32.39%     -513kB 14.16%  runtime.park_m
+         0     0% 32.39%    -2565kB 70.80%  runtime.resetspinning
+         0     0% 32.39%    -2565kB 70.80%  runtime.schedule
+         0     0% 32.39%    -2565kB 70.80%  runtime.startm
+         0     0% 32.39%    -2565kB 70.80%  runtime.wakep

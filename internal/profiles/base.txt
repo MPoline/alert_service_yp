@@ -1,0 +1,37 @@
+File: server
+Type: inuse_space
+Time: 2025-08-06 08:23:19 MSK
+Showing nodes accounting for 3622.67kB, 100% of 3622.67kB total
+      flat  flat%   sum%        cum   cum%
+    3078kB 84.97% 84.97%     3078kB 84.97%  runtime.allocm
+  544.67kB 15.03%   100%   544.67kB 15.03%  compress/flate.(*compressor).initDeflate (inline)
+         0     0%   100%   544.67kB 15.03%  compress/flate.(*compressor).init
+         0     0%   100%   544.67kB 15.03%  compress/flate.NewWriter (inline)
+         0     0%   100%   544.67kB 15.03%  compress/gzip.(*Writer).Write
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipCompress.func1
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipDecompress.func2
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.RequestLogger.func3
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.ResponseLogger.func4
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/middlewares.(*gzipWriter).Write
+         0     0%   100%   544.67kB 15.03%  github.com/MPoline/alert_service_yp/internal/server/services.UpdateMetricFromJSON
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.(*Context).JSON (inline)
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.(*Context).Next (partial-inline)
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.(*Context).Render
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.(*Engine).ServeHTTP
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.CustomRecoveryWithWriter.func1
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin.LoggerWithConfig.func1
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin/render.JSON.Render
+         0     0%   100%   544.67kB 15.03%  github.com/gin-gonic/gin/render.WriteJSON
+         0     0%   100%   544.67kB 15.03%  net/http.(*conn).serve
+         0     0%   100%   544.67kB 15.03%  net/http.serverHandler.ServeHTTP
+         0     0%   100%      513kB 14.16%  runtime.mcall
+         0     0%   100%     2565kB 70.80%  runtime.mstart
+         0     0%   100%     2565kB 70.80%  runtime.mstart0
+         0     0%   100%     2565kB 70.80%  runtime.mstart1
+         0     0%   100%     3078kB 84.97%  runtime.newm
+         0     0%   100%      513kB 14.16%  runtime.park_m
+         0     0%   100%     3078kB 84.97%  runtime.resetspinning
+         0     0%   100%     3078kB 84.97%  runtime.schedule
+         0     0%   100%     3078kB 84.97%  runtime.startm
+         0     0%   100%     3078kB 84.97%  runtime.wakep

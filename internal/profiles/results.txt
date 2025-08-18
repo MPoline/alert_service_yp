@@ -1,0 +1,44 @@
+File: server
+Type: inuse_space
+Time: 2025-08-06 08:34:22 MSK
+Showing nodes accounting for 2449.26kB, 100% of 2449.26kB total
+      flat  flat%   sum%        cum   cum%
+  902.59kB 36.85% 36.85%   902.59kB 36.85%  compress/flate.NewWriter (inline)
+  521.05kB 21.27% 58.13%   521.05kB 21.27%  github.com/lib/pq.map.init.0
+     513kB 20.95% 79.07%      513kB 20.95%  runtime.allocm
+  512.62kB 20.93%   100%   512.62kB 20.93%  regexp.onePassCopy
+         0     0%   100%   902.59kB 36.85%  compress/gzip.(*Writer).Write
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipCompress.func1
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.GZipDecompress.func2
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.RequestLogger.func3
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/api.registerMiddlewares.ResponseLogger.func4
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/middlewares.(*gzipWriter).Write
+         0     0%   100%   902.59kB 36.85%  github.com/MPoline/alert_service_yp/internal/server/services.UpdateMetricFromJSON
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.(*Context).JSON (inline)
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.(*Context).Next (partial-inline)
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.(*Context).Render
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.(*Engine).ServeHTTP
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.CustomRecoveryWithWriter.func1
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin.LoggerWithConfig.func1
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin/render.JSON.Render
+         0     0%   100%   902.59kB 36.85%  github.com/gin-gonic/gin/render.WriteJSON
+         0     0%   100%   521.05kB 21.27%  github.com/lib/pq.init
+         0     0%   100%   512.62kB 20.93%  gopkg.in/yaml%2ev3.init
+         0     0%   100%   902.59kB 36.85%  net/http.(*conn).serve
+         0     0%   100%   902.59kB 36.85%  net/http.serverHandler.ServeHTTP
+         0     0%   100%   512.62kB 20.93%  regexp.Compile (inline)
+         0     0%   100%   512.62kB 20.93%  regexp.MustCompile
+         0     0%   100%   512.62kB 20.93%  regexp.compile
+         0     0%   100%   512.62kB 20.93%  regexp.compileOnePass
+         0     0%   100%  1033.68kB 42.20%  runtime.doInit (inline)
+         0     0%   100%  1033.68kB 42.20%  runtime.doInit1
+         0     0%   100%  1033.68kB 42.20%  runtime.main
+         0     0%   100%      513kB 20.95%  runtime.mstart
+         0     0%   100%      513kB 20.95%  runtime.mstart0
+         0     0%   100%      513kB 20.95%  runtime.mstart1
+         0     0%   100%      513kB 20.95%  runtime.newm
+         0     0%   100%      513kB 20.95%  runtime.resetspinning
+         0     0%   100%      513kB 20.95%  runtime.schedule
+         0     0%   100%      513kB 20.95%  runtime.startm
+         0     0%   100%      513kB 20.95%  runtime.wakep

@@ -5,6 +5,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// ResponseLogger возвращает middleware для логирования исходящих HTTP-ответов.
+// Логирует следующие параметры:
+//   - HTTP статус код
+//   - Размер контента в байтах
+//
+// Пример использования:
+//  router := gin.Default()
+//  logger, _ := zap.NewProduction()
+//  router.Use(ResponseLogger(logger))
+//
+// Пример вывода лога:
+//  {"level":"info","ts":1630000000,"msg":"Response Info","Status code":200,"Content size":42}
 func ResponseLogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()

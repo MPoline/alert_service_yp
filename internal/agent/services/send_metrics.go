@@ -23,6 +23,12 @@ var (
 	m         models.Metrics
 )
 
+// addNewMetrics собирает дополнительные системные метрики
+//
+// Возвращает:
+//   - float64: общий объем памяти в MB
+//   - float64: свободный объем памяти в MB
+//   - []float64: загрузка CPU по ядрам
 func addNewMetrics() (float64, float64, []float64) {
 	vmStat, _ := mem.VirtualMemory()
 	CPUutilization, _ := cpu.Percent(time.Second, true)
@@ -33,6 +39,19 @@ func addNewMetrics() (float64, float64, []float64) {
 	return totalMemoryMB, freeMemoryMB, CPUutilization
 }
 
+// CreateMetrics создает слайс метрик для отправки на сервер
+//
+// Параметры:
+//   - s *storage.MemStorage: хранилище метрик
+//
+// Возвращает:
+//   - []models.Metrics: слайс метрик в формате для отправки
+//
+// Особенности:
+//   - Собирает метрики конкурентно из трех источников:
+//     1. Gauge-метрики из хранилища
+//     2. Counter-метрики из хранилища
+//     3. Дополнительные системные метрики
 func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 	var wg sync.WaitGroup
 	resultCh := make(chan models.Metrics, len(s.Gauges)+len(s.Counters)+3)
@@ -114,6 +133,22 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 	return metricsStorage
 }
 
+// SendMetrics отправляет метрики на сервер с повторными попытками
+//
+// Параметры:
+//   - s *storage.MemStorage: хранилище метрик
+//   - metricsStorage []models.Metrics: метрики для отправки
+//
+// Особенности:
+//   - Использует gzip сжатие
+//   - Добавляет HMAC-SHA256 подпись
+//   - Выполняет 3 попытки отправки с экспоненциальной задержкой
+//   - Логирует процесс отправки
+//
+// Пример использования:
+//
+//	metrics := CreateMetrics(s)
+//	SendMetrics(s, metrics)
 func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	zap.L().Info("Start SendMetrics")
 	client := resty.New()
