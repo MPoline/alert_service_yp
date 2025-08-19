@@ -1,3 +1,5 @@
+//go:build agent
+
 package main
 
 import (
@@ -11,6 +13,7 @@ import (
 	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/models"
 	"github.com/MPoline/alert_service_yp/internal/storage"
+	"github.com/MPoline/alert_service_yp/pkg/buildinfo"
 	"go.uber.org/zap"
 )
 
@@ -30,6 +33,9 @@ var (
 )
 
 func main() {
+	buildinfo.Print("Agent")
+	fmt.Println("Agent started")
+
 	logger, err := logging.InitLog()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error initializing logger:", err)

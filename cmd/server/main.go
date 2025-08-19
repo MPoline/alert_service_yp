@@ -1,3 +1,5 @@
+//go:build server
+
 package main
 
 import (
@@ -12,11 +14,15 @@ import (
 	"github.com/MPoline/alert_service_yp/internal/server/api"
 	"github.com/MPoline/alert_service_yp/internal/server/flags"
 	"github.com/MPoline/alert_service_yp/internal/storage"
+	"github.com/MPoline/alert_service_yp/pkg/buildinfo"
 	"go.uber.org/zap"
 	"golang.org/x/tools/go/analysis/multichecker"
 )
 
 func main() {
+	buildinfo.Print("Server")
+	fmt.Println("Server started")
+
 	multichecker.Main(
 		staticlint.GetAnalyzers()...,
 	)
