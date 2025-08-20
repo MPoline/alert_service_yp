@@ -9,23 +9,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/MPoline/alert_service_yp/cmd/staticlint"
 	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/server/api"
 	"github.com/MPoline/alert_service_yp/internal/server/flags"
 	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/MPoline/alert_service_yp/pkg/buildinfo"
 	"go.uber.org/zap"
-	"golang.org/x/tools/go/analysis/multichecker"
 )
 
 func main() {
 	buildinfo.Print("Server")
 	fmt.Println("Server started")
 
-	multichecker.Main(
-		staticlint.GetAnalyzers()...,
-	)
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
 	}()
