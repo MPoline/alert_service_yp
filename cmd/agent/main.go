@@ -8,6 +8,7 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
 	"github.com/MPoline/alert_service_yp/internal/agent/services"
+	"github.com/MPoline/alert_service_yp/internal/crypto"
 	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/models"
 	"github.com/MPoline/alert_service_yp/internal/storage"
@@ -46,6 +47,28 @@ func main() {
 	logger.Info("Run agent")
 
 	flags.ParseFlags()
+
+	if flags.FlagCryptoKey != "" {
+		logger.Info("Initializing encryption", zap.String("public_key", flags.FlagCryptoKey))
+
+		publicKey, err := crypto.LoadPublicKey(flags.FlagCryptoKey)
+		if err != nil {
+			logger.Error("Failed to load public key",
+				zap.String("path", flags.FlagCryptoKey),
+				zap.Error(err))
+			os.Exit(1)
+		}
+
+		if err := services.InitEncryption(publicKey); err != nil {
+			logger.Error("Failed to initialize encryption", zap.Error(err))
+			os.Exit(1)
+		}
+
+		logger.Info("Encryption initialized successfully")
+	} else {
+		logger.Info("Encryption disabled - no crypto key provided")
+	}
+
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
 

@@ -7,6 +7,7 @@
 package api
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"os"
 
@@ -51,6 +52,11 @@ func InitRouter() *gin.Engine {
 	return router
 }
 
+// InitDecryption инициализирует расшифровку с предоставленным приватным ключом
+func InitDecryption(privateKey *rsa.PrivateKey) {
+	services.InitDecryption(privateKey)
+}
+
 // registerMiddlewares регистрирует middleware для роутера:
 //   - GZip сжатие ответов
 //   - GZip распаковка запросов
@@ -66,8 +72,9 @@ func registerMiddlewares(r *gin.Engine) {
 	}
 	defer logger.Sync()
 
-	r.Use(middlewares.GZipCompress())
 	r.Use(middlewares.GZipDecompress())
+	r.Use(middlewares.DecryptMiddleware())
+	r.Use(middlewares.GZipCompress())
 	r.Use(middlewares.RequestLogger(logger))
 	r.Use(middlewares.ResponseLogger(logger))
 }

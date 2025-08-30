@@ -35,6 +35,9 @@ var (
 
 	// FlagKey - ключ для подписи данных (флаг -k, переменная KEY)
 	FlagKey string
+
+	// FlagCryptoKey - путь до файла с приватным ключом
+	FlagCryptoKey string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
@@ -48,6 +51,7 @@ var (
 //	-r : восстановить метрики из файла (по умолчанию false)
 //	-d : строка подключения к БД (по умолчанию "")
 //	-k : ключ для подписи (по умолчанию "+randomSrting+")
+//	-с : ассиметричное шифрование (по умолчанию не используется)
 //
 // Пример использования:
 //
@@ -61,6 +65,7 @@ func ParseFlags() {
 	flag.BoolVar(&FlagRestore, "r", false, "read metrics from file")
 	flag.StringVar(&FlagDatabaseDSN, "d", "", "address and port to run database")
 	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
+	flag.StringVar(&FlagCryptoKey, "c", "", "path to file with private key for encryption")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -102,6 +107,10 @@ func ParseFlags() {
 		zap.L().Info("KEY: ", zap.String("envKey", envKey))
 		FlagKey = envKey
 	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		zap.L().Info("CRYPTO_KEY: ", zap.String("envCryptoKey", envCryptoKey))
+		FlagCryptoKey = envCryptoKey
+	}
 
 	zap.L().Info(
 		"Server settings",
@@ -110,5 +119,6 @@ func ParseFlags() {
 		zap.Int64("Store metrics interval: ", FlagStoreInterval),
 		zap.String("Store path: ", FlagFileStoragePath),
 		zap.Bool("Is restore: ", FlagRestore),
+		zap.String("CryptoKey adress", FlagCryptoKey),
 	)
 }

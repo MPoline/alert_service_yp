@@ -7,9 +7,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/MPoline/alert_service_yp/internal/crypto"
 	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/server/api"
 	"github.com/MPoline/alert_service_yp/internal/server/flags"
+	"github.com/MPoline/alert_service_yp/internal/server/services"
 	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/MPoline/alert_service_yp/pkg/buildinfo"
 	"go.uber.org/zap"
@@ -32,9 +34,26 @@ func main() {
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
-	r := api.InitRouter()
-
 	flags.ParseFlags()
+
+	if flags.FlagCryptoKey != "" {
+		logger.Info("Initializing decryption", zap.String("private_key", flags.FlagCryptoKey))
+
+		privateKey, err := crypto.LoadPrivateKey(flags.FlagCryptoKey)
+		if err != nil {
+			logger.Error("Failed to load private key",
+				zap.String("path", flags.FlagCryptoKey),
+				zap.Error(err))
+			os.Exit(1)
+		}
+
+		services.InitDecryption(privateKey)
+		logger.Info("Decryption initialized successfully")
+	} else {
+		logger.Info("Decryption disabled - no crypto key provided")
+	}
+
+	r := api.InitRouter()
 
 	var storageType string
 

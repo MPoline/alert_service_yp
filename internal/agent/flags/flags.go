@@ -32,6 +32,9 @@ var (
 
 	// FlagRateLimit - лимит одновременных запросов (флаг -l, переменная RATE_LIMIT)
 	FlagRateLimit int64
+
+	// FlagCryptoKey - путь до файла с публичным ключом
+	FlagCryptoKey string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
@@ -44,6 +47,7 @@ var (
 //	-p : интервал сбора метрик в секундах (по умолчанию 2)
 //	-k : ключ для подписи (по умолчанию "+randomSrting+")
 //	-l : лимит одновременных запросов (по умолчанию 5)
+//	-с : ассиметричное шифрование (по умолчанию не используется)
 //
 // Поддерживаемые переменные окружения:
 //
@@ -52,6 +56,7 @@ var (
 //	POLL_INTERVAL
 //	KEY
 //	RATE_LIMIT
+//	CRYPTO_KEY
 //
 // Пример использования:
 //
@@ -64,6 +69,7 @@ func ParseFlags() {
 	flag.Int64Var(&FlagPollInterval, "p", 2, "frequency of polling metrics")
 	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
 	flag.Int64Var(&FlagRateLimit, "l", 5, "rateLimit workers")
+	flag.StringVar(&FlagCryptoKey, "c", "", "path to file with public key for encryption")
 	flag.Parse()
 
 	if flag.NArg() > 0 {
@@ -98,13 +104,18 @@ func ParseFlags() {
 			zap.L().Info("Error parse RATE_LIMIT", zap.Error(err))
 		}
 	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		zap.L().Info("CRYPTO_KEY: ", zap.String("envCryptoKey", envCryptoKey))
+		FlagCryptoKey = envCryptoKey
+	}
 
 	zap.L().Info(
 		"Agent settings",
 		zap.String("Server address", FlagRunAddr),
 		zap.Int64("Report interval (sec)", FlagReportInterval),
 		zap.Int64("Poll interval (sec)", FlagPollInterval),
-		zap.String("Hash key", "[REDACTED]"), 
+		zap.String("Hash key", "[REDACTED]"),
 		zap.Int64("Rate limit", FlagRateLimit),
+		zap.String("CryptoKey adress", FlagCryptoKey),
 	)
 }
