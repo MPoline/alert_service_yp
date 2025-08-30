@@ -11,10 +11,14 @@ import (
 	"github.com/MPoline/alert_service_yp/internal/server/api"
 	"github.com/MPoline/alert_service_yp/internal/server/flags"
 	"github.com/MPoline/alert_service_yp/internal/storage"
+	"github.com/MPoline/alert_service_yp/pkg/buildinfo"
 	"go.uber.org/zap"
 )
 
 func main() {
+	buildinfo.Print("Server")
+	fmt.Println("Server started")
+
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
 	}()
