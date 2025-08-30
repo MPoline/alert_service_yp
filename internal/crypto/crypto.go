@@ -11,15 +11,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"hash"
 	"os"
 
 	"go.uber.org/zap"
 )
 
 var (
-	OAEPHash  hash.Hash = sha256.New()
-	OAEPLabel []byte    = nil
+	OAEPHash         = sha256.New()
+	OAEPLabel []byte = nil
 )
 
 const (
