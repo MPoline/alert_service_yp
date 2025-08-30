@@ -16,10 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	OAEPHash         = sha256.New()
-	OAEPLabel []byte = nil
-)
+var OAEPHash = sha256.New()
+var OAEPLabel []byte = nil
 
 const (
 	ChunkProtocolVersion uint8 = 1
