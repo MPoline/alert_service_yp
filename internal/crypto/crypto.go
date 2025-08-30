@@ -21,8 +21,8 @@ var OAEPLabel []byte = nil
 
 const (
 	ChunkProtocolVersion uint8 = 1
-	ChunkHeaderSize            = 5 // version(1) + chunk_count(4)
-	ChunkSizeHeaderSize        = 4 // uint32 для размера каждого chunk
+	ChunkHeaderSize      int   = 5 // version(1) + chunk_count(4)
+	ChunkSizeHeaderSize  int   = 4 // uint32 для размера каждого chunk
 )
 
 // ChunkProtocol представляет зашифрованные данные с метаинформацией
