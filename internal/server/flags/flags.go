@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/MPoline/alert_service_yp/internal/config"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +39,8 @@ var (
 
 	// FlagCryptoKey - путь до файла с приватным ключом
 	FlagCryptoKey string
+
+	FlagConfigFile string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
@@ -65,60 +68,115 @@ func ParseFlags() {
 	flag.BoolVar(&FlagRestore, "r", false, "read metrics from file")
 	flag.StringVar(&FlagDatabaseDSN, "d", "", "address and port to run database")
 	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
-	flag.StringVar(&FlagCryptoKey, "c", "", "path to file with private key for encryption")
+	flag.StringVar(&FlagCryptoKey, "crypto-key", "", "path to file with private key for encryption")
+	flag.StringVar(&FlagConfigFile, "config", "", "path to configuration file")
+	flag.StringVar(&FlagConfigFile, "c", "", "path to configuration file (shorthand)")
+
 	flag.Parse()
 
-	if flag.NArg() > 0 {
-		zap.L().Info("Error: unknown flag(s)")
-		flag.Usage()
-		return
+	var fileConfig *config.ServerConfig
+	if FlagConfigFile != "" {
+		fileConfig, err = config.LoadServerConfig(FlagConfigFile)
+		if err != nil {
+			zap.L().Error("Failed to load config file", zap.Error(err))
+		}
 	}
 
+	if fileConfig != nil {
+		applyFileConfig(fileConfig)
+	}
+
+	readEnvVars()
+
+	validateAndLogFlags()
+
+	if flag.NArg() > 0 {
+		zap.L().Warn("Unknown arguments detected", zap.Strings("args", flag.Args()))
+	}
+}
+
+func applyFileConfig(config *config.ServerConfig) {
+	if FlagRunAddr == ":8080" && config.Address != "" {
+		FlagRunAddr = config.Address
+	}
+	if FlagStoreInterval == 300 && config.StoreInterval != 0 {
+		FlagStoreInterval = int64(config.StoreInterval.ToDuration().Seconds())
+	}
+	if FlagFileStoragePath == "./savedMetrics" && config.FileStoragePath != "" {
+		FlagFileStoragePath = config.FileStoragePath
+	}
+	if !FlagRestore && config.Restore {
+		FlagRestore = config.Restore
+	}
+	if FlagDatabaseDSN == "" && config.DatabaseDSN != "" {
+		FlagDatabaseDSN = config.DatabaseDSN
+	}
+	if FlagKey == "+randomSrting+" && config.Key != "" {
+		FlagKey = config.Key
+	}
+	if FlagCryptoKey == "" && config.CryptoKey != "" {
+		FlagCryptoKey = config.CryptoKey
+	}
+}
+
+func readEnvVars() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
-		zap.L().Info("ADDRESS: ", zap.String("envRunAddr", envRunAddr))
 		FlagRunAddr = envRunAddr
 	}
 
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
-		FlagStoreInterval, err = strconv.ParseInt(envStoreInterval, 10, 64)
-		if err != nil {
-			zap.L().Info("Error parse STORE_INTERVAL", zap.Error(err))
+		if interval, err := strconv.ParseInt(envStoreInterval, 10, 64); err == nil {
+			FlagStoreInterval = interval
+		} else {
+			zap.L().Error("Failed to parse STORE_INTERVAL", zap.Error(err))
 		}
 	}
 
 	if envStorePath := os.Getenv("FILE_STORAGE_PATH"); envStorePath != "" {
-		zap.L().Info("FILE_STORAGE_PATH: ", zap.String("envStorePath", envStorePath))
 		FlagFileStoragePath = envStorePath
 	}
 
 	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
-		FlagRestore, err = strconv.ParseBool(envRestore)
-		if err != nil {
-			zap.L().Info("Error parse RESTORE", zap.Error(err))
+		if restore, err := strconv.ParseBool(envRestore); err == nil {
+			FlagRestore = restore
+		} else {
+			zap.L().Error("Failed to parse RESTORE", zap.Error(err))
 		}
 	}
 
 	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
-		zap.L().Info("DATABASE_DSN: ", zap.String("envDatabaseDNS", envDatabaseDSN))
 		FlagDatabaseDSN = envDatabaseDSN
 	}
 
 	if envKey := os.Getenv("KEY"); envKey != "" {
-		zap.L().Info("KEY: ", zap.String("envKey", envKey))
 		FlagKey = envKey
 	}
+
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
-		zap.L().Info("CRYPTO_KEY: ", zap.String("envCryptoKey", envCryptoKey))
 		FlagCryptoKey = envCryptoKey
 	}
 
+	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+		FlagConfigFile = envConfigFile
+	}
+}
+
+func validateAndLogFlags() {
+	if FlagStoreInterval < 0 {
+		zap.L().Warn("Store interval cannot be negative, using default value",
+			zap.Int64("default", 300))
+		FlagStoreInterval = 300
+	}
+
 	zap.L().Info(
-		"Server settings",
-		zap.String("Running server address: ", FlagRunAddr),
-		zap.String("Running database address: ", FlagDatabaseDSN),
-		zap.Int64("Store metrics interval: ", FlagStoreInterval),
-		zap.String("Store path: ", FlagFileStoragePath),
-		zap.Bool("Is restore: ", FlagRestore),
-		zap.String("CryptoKey adress", FlagCryptoKey),
+		"Server configuration",
+		zap.String("address", FlagRunAddr),
+		zap.Int64("store_interval", FlagStoreInterval),
+		zap.String("file_storage_path", FlagFileStoragePath),
+		zap.Bool("restore", FlagRestore),
+		zap.String("database_dsn", FlagDatabaseDSN),
+		zap.String("key", config.MaskSensitive(FlagKey)),
+		zap.String("crypto_key", FlagCryptoKey),
+		zap.String("config_file", FlagConfigFile),
 	)
 }
