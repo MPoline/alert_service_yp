@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/MPoline/alert_service_yp/internal/crypto"
@@ -20,6 +23,10 @@ import (
 func main() {
 	buildinfo.Print("Server")
 	fmt.Println("Server started")
+
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stop()
 
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
@@ -77,19 +84,52 @@ func main() {
 		storeInterval := time.Second * time.Duration(flags.FlagStoreInterval)
 		if flags.FlagStoreInterval > 0 {
 			ticker := time.NewTicker(storeInterval)
+			defer ticker.Stop()
+
 			go func() {
-				for range ticker.C {
-					storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath)
+				for {
+					select {
+					case <-ticker.C:
+						storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath)
+					case <-ctx.Done():
+						return
+					}
 				}
 			}()
 		}
-
 	}
 
 	defer storage.MetricStorage.Close()
 
-	err = r.Run(flags.FlagRunAddr)
-	if err != nil {
-		logger.Warn("Error start server: ", zap.Error(err))
+	server := &http.Server{
+		Addr:    flags.FlagRunAddr,
+		Handler: r,
 	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Server error", zap.Error(err))
+		}
+	}()
+
+	logger.Info("Server is running", zap.String("address", flags.FlagRunAddr))
+
+	<-ctx.Done()
+	logger.Info("Shutting down server gracefully...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if storageType == "memory" {
+		logger.Info("Saving data to file before shutdown...")
+		if err := storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath); err != nil {
+			logger.Error("Error saving data to file", zap.Error(err))
+		}
+	}
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Server shutdown error", zap.Error(err))
+	}
+
+	logger.Info("Server stopped")
 }
