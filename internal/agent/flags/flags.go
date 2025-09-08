@@ -124,11 +124,11 @@ func applyFileConfig(config *config.AgentConfig) {
 }
 
 func readEnvVars() {
-	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+	if envRunAddr, exists := os.LookupEnv("ADDRESS"); exists && envRunAddr != "" {
 		FlagRunAddr = envRunAddr
 	}
 
-	if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
+	if envReportInterval, exists := os.LookupEnv("REPORT_INTERVAL"); exists && envReportInterval != "" {
 		if interval, err := strconv.ParseInt(envReportInterval, 10, 64); err == nil {
 			FlagReportInterval = interval
 		} else {
@@ -136,7 +136,7 @@ func readEnvVars() {
 		}
 	}
 
-	if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
+	if envPollInterval, exists := os.LookupEnv("POLL_INTERVAL"); exists && envPollInterval != "" {
 		if interval, err := strconv.ParseInt(envPollInterval, 10, 64); err == nil {
 			FlagPollInterval = interval
 		} else {
@@ -144,15 +144,15 @@ func readEnvVars() {
 		}
 	}
 
-	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+	if envCryptoKey, exists := os.LookupEnv("CRYPTO_KEY"); exists {
 		FlagCryptoKey = envCryptoKey
 	}
 
-	if envKey := os.Getenv("KEY"); envKey != "" {
+	if envKey, exists := os.LookupEnv("KEY"); exists {
 		FlagKey = envKey
 	}
 
-	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+	if envConfigFile, exists := os.LookupEnv("CONFIG"); exists {
 		FlagConfigFile = envConfigFile
 	}
 }

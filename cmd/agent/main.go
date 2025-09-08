@@ -77,16 +77,15 @@ func main() {
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
 
-	sendCh := make(chan []models.Metrics, 50)
+	sendCh := make(chan []models.Metrics, flags.FlagRateLimit)
 	var wg sync.WaitGroup
 
-	sendCtx, cancelSend := context.WithCancel(context.Background())
+	sendCtx, cancelSend := context.WithCancel(ctx)
 	defer cancelSend()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer close(sendCh)
 
 		var workersWG sync.WaitGroup
 		workersWG.Add(int(flags.FlagRateLimit))
@@ -94,21 +93,12 @@ func main() {
 		for i := 0; i < int(flags.FlagRateLimit); i++ {
 			go func(id int) {
 				defer workersWG.Done()
-				for {
-					select {
-					case metrics, ok := <-sendCh:
-						if !ok {
-							logger.Debug("Worker stopped - channel closed", zap.Int("worker_id", id))
-							return
-						}
-						if metrics != nil {
-							services.SendMetrics(memStorage, metrics)
-						}
-					case <-sendCtx.Done():
-						logger.Debug("Worker stopped - context cancelled", zap.Int("worker_id", id))
-						return
+				for metrics := range sendCh {
+					if metrics != nil {
+						services.SendMetrics(memStorage, metrics)
 					}
 				}
+				logger.Debug("Worker stopped - channel closed", zap.Int("worker_id", id))
 			}(i)
 		}
 		workersWG.Wait()
@@ -136,6 +126,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer close(sendCh)
+
 		ticker := time.NewTicker(reportInterval)
 		defer ticker.Stop()
 

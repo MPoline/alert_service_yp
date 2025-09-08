@@ -11,14 +11,14 @@ import (
 type Duration time.Duration
 
 type ServerConfig struct {
-	Address           string   `json:"address"`
-	StoreInterval     Duration `json:"store_interval"`
-	FileStoragePath   string   `json:"file_storage_path"`
-	Restore           bool     `json:"restore"`
-	DatabaseDSN       string   `json:"database_dsn"`
-	Key               string   `json:"key"`
-	CryptoKey         string   `json:"crypto_key"`
-	ConfigFile        string   `json:"-"`
+	Address         string   `json:"address"`
+	StoreInterval   Duration `json:"store_interval"`
+	FileStoragePath string   `json:"file_storage_path"`
+	Restore         bool     `json:"restore"`
+	DatabaseDSN     string   `json:"database_dsn"`
+	Key             string   `json:"key"`
+	CryptoKey       string   `json:"crypto_key"`
+	ConfigFile      string   `json:"-"`
 }
 
 type AgentConfig struct {
@@ -39,7 +39,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	
+
 	switch value := v.(type) {
 	case string:
 		dur, err := time.ParseDuration(value)
@@ -50,7 +50,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	case float64:
 		*d = Duration(time.Duration(value) * time.Second)
 	default:
-		return fmt.Errorf("invalid duration format")
+		return fmt.Errorf("invalid duration format: %v", v)
 	}
 	return nil
 }

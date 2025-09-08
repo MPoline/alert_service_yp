@@ -243,7 +243,8 @@ func createChunkProtocol(chunks [][]byte, chunkSizes []uint32) ([]byte, error) {
 // parseChunkProtocol парсит бинарный protocol chunks
 func parseChunkProtocol(data []byte) (*ChunkProtocol, error) {
 	if len(data) < ChunkHeaderSize {
-		return nil, errors.New("protocol data too short")
+		return nil, fmt.Errorf("protocol data too short: got %d bytes, expected at least %d bytes",
+			len(data), ChunkHeaderSize)
 	}
 
 	protocolBuffer := bytes.NewReader(data)
