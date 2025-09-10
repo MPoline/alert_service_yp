@@ -27,3 +27,6 @@ vendor/
 .vscode
 
 .DS_Store
+
+bin/
+savedMetrics
