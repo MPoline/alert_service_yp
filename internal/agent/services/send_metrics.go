@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
+	"github.com/MPoline/alert_service_yp/internal/crypto"
 	"github.com/MPoline/alert_service_yp/internal/hasher"
 	"github.com/MPoline/alert_service_yp/internal/models"
 	storage "github.com/MPoline/alert_service_yp/internal/storage"
@@ -133,7 +134,7 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 	return metricsStorage
 }
 
-// SendMetrics отправляет метрики на сервер с повторными попытками
+// SendMetrics отправляет метрики на сервер с повторными попытками и поддержкой шифрования
 //
 // Параметры:
 //   - s *storage.MemStorage: хранилище метрик
@@ -142,6 +143,7 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 // Особенности:
 //   - Использует gzip сжатие
 //   - Добавляет HMAC-SHA256 подпись
+//   - Поддерживает асимметричное шифрование RSA-OAEP
 //   - Выполняет 3 попытки отправки с экспоненциальной задержкой
 //   - Логирует процесс отправки
 //
@@ -171,33 +173,99 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 	hashStr := base64.StdEncoding.EncodeToString(hash)
 	zap.L().Info("hash request: ", zap.String("hashStr", hashStr))
 
+	var requestData []byte
+	var contentType string
+	publicKey := GetPublicKey()
+
+	if publicKey != nil {
+		encryptedData, err := crypto.EncryptLargeData(publicKey, jsonBody)
+		if err != nil {
+			zap.L().Error("Failed to encrypt data: ", zap.Error(err))
+			return
+		}
+		requestData = encryptedData
+		contentType = "application/octet-stream"
+		zap.L().Info("Data encrypted with chunk protocol",
+			zap.Int("original_size", len(jsonBody)),
+			zap.Int("encrypted_size", len(encryptedData)),
+			zap.Int("key_size", publicKey.Size()))
+	} else {
+		requestData = jsonBody
+		contentType = "application/json"
+		zap.L().Debug("Encryption disabled, using plain JSON")
+	}
+
 	var buff bytes.Buffer
 	gz := gzip.NewWriter(&buff)
-	defer gz.Close()
-
-	_, err = gz.Write(jsonBody)
+	_, err = gz.Write(requestData)
 	if err != nil {
-		zap.L().Info("Failed to compress data: ", zap.Error(err))
+		zap.L().Error("Failed to compress data: ", zap.Error(err))
 		return
 	}
-	gz.Close()
+	if err := gz.Close(); err != nil {
+		zap.L().Error("Failed to close gzip writer: ", zap.Error(err))
+		return
+	}
 	compressedData := buff.Bytes()
+
+	headers := map[string]string{
+		"Content-Type":     contentType,
+		"Content-Encoding": "gzip",
+		"HashSHA256":       base64.StdEncoding.EncodeToString(hash),
+	}
+
+	if publicKey != nil {
+		headers["X-Encrypted"] = "true"
+		headers["X-Encryption-Algorithm"] = "RSA-OAEP"
+		headers["X-Encryption-Mode"] = "chunk-protocol"
+	}
+
+	zap.L().Debug("Request prepared",
+		zap.Int("json_size", len(jsonBody)),
+		zap.Int("request_size", len(requestData)),
+		zap.Int("compressed_size", len(compressedData)),
+		zap.Bool("encrypted", publicKey != nil))
 
 	for attempt, interval := range intervals {
 		req := client.R().
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Content-Encoding", "gzip").
-			SetHeader("HashSHA256", base64.StdEncoding.EncodeToString(hash)).
+			SetHeaders(headers).
 			SetBody(compressedData)
 
+		zap.L().Debug("Sending request attempt",
+			zap.Int("attempt", attempt+1),
+			zap.Int("total_attempts", len(intervals)))
+
 		resp, err := req.Post(serverURL)
-		if err != nil || resp.IsError() {
-			zap.L().Warn("Sending metrics failed on attempt", zap.Int("attempt", attempt+1),
-				zap.Duration("interval", interval))
+		if err != nil {
+			zap.L().Warn("Sending metrics failed on attempt",
+				zap.Int("attempt", attempt+1),
+				zap.Duration("interval", interval),
+				zap.Error(err),
+				zap.Bool("encrypted", publicKey != nil))
 			time.Sleep(interval)
 			continue
 		}
-		break
+
+		if resp.IsError() {
+			zap.L().Warn("Server returned error on attempt",
+				zap.Int("attempt", attempt+1),
+				zap.Int("status", resp.StatusCode()),
+				zap.String("response", resp.String()),
+				zap.Bool("encrypted", publicKey != nil))
+			time.Sleep(interval)
+			continue
+		}
+
+		zap.L().Info("Metrics sent successfully",
+			zap.Int("attempt", attempt+1),
+			zap.Int("metrics_count", len(metricsStorage)),
+			zap.Int("compressed_size", len(compressedData)),
+			zap.Bool("encrypted", publicKey != nil),
+			zap.String("server_response", resp.String()))
+		return
 	}
 
+	zap.L().Error("All attempts to send metrics failed",
+		zap.Int("metrics_count", len(metricsStorage)),
+		zap.Bool("encrypted", publicKey != nil))
 }

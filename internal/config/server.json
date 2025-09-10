@@ -1,0 +1,9 @@
+{
+    "address": "localhost:8080",
+    "store_interval": "300s",
+    "file_storage_path": "./savedMetrics",
+    "restore": true,
+    "database_dsn": "",
+    "key": "my-secret-key",
+    "crypto_key": "keys/private_key.pem"
+}
