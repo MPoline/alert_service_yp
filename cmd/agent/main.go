@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
@@ -32,6 +33,21 @@ var (
 	memStorage = storage.NewMemStorage()
 )
 
+// getLocalIP получает локальный IP адрес агента для заголовка X-Real-IP
+// Использует UDP соединение к публичному DNS для определения внешнего IP
+// В случае ошибки возвращает fallback на localhost (127.0.0.1)
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		zap.L().Warn("Failed to get local IP address, using fallback", zap.Error(err))
+		return "127.0.0.1"
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
+}
+
 func main() {
 	buildinfo.Print("Agent")
 	fmt.Println("Agent started")
@@ -52,6 +68,10 @@ func main() {
 	logger.Info("Run agent")
 
 	flags.ParseFlags()
+
+	localIP := getLocalIP()
+	logger.Info("Using local IP for X-Real-IP header",
+		zap.String("ip", localIP))
 
 	if flags.FlagCryptoKey != "" {
 		logger.Info("Initializing encryption", zap.String("public_key", flags.FlagCryptoKey))
@@ -95,14 +115,16 @@ func main() {
 				defer workersWG.Done()
 				for metrics := range sendCh {
 					if metrics != nil {
-						services.SendMetrics(memStorage, metrics)
+						services.SendMetrics(memStorage, metrics, localIP)
 					}
 				}
-				logger.Debug("Worker stopped - channel closed", zap.Int("worker_id", id))
+				logger.Debug("Worker stopped - channel closed",
+					zap.Int("worker_id", id),
+					zap.String("worker_ip", localIP))
 			}(i)
 		}
 		workersWG.Wait()
-		logger.Info("All workers stopped")
+		logger.Info("All workers stopped", zap.String("agent_ip", localIP))
 	}()
 
 	// Сбор метрик
@@ -117,6 +139,7 @@ func main() {
 			case <-ticker.C:
 				services.GetMetrics(memStorage, neсMetrics)
 			case <-ctx.Done():
+				logger.Info("Metrics collection stopped", zap.String("agent_ip", localIP))
 				return
 			}
 		}
@@ -137,24 +160,37 @@ func main() {
 				metricStorage := services.CreateMetrics(memStorage)
 				select {
 				case sendCh <- metricStorage:
+					logger.Debug("Metrics batch sent to channel",
+						zap.Int("metrics_count", len(metricStorage)),
+						zap.String("agent_ip", localIP))
 				case <-sendCtx.Done():
+					logger.Info("Send context cancelled", zap.String("agent_ip", localIP))
 					return
 				case <-ctx.Done():
+					logger.Info("Main context cancelled", zap.String("agent_ip", localIP))
 					return
 				default:
-					logger.Warn("Channel full, skipping metrics batch")
+					logger.Warn("Channel full, skipping metrics batch",
+						zap.String("agent_ip", localIP))
 				}
 
 			case <-ctx.Done():
+				logger.Info("Shutdown initiated, sending final metrics",
+					zap.String("agent_ip", localIP))
+
 				metricStorage := services.CreateMetrics(memStorage)
 
 				select {
 				case sendCh <- metricStorage:
-					logger.Info("Last metrics sent successfully")
+					logger.Info("Last metrics sent successfully",
+						zap.Int("metrics_count", len(metricStorage)),
+						zap.String("agent_ip", localIP))
 				case <-time.After(100 * time.Millisecond):
-					logger.Warn("Failed to send last metrics - timeout")
+					logger.Warn("Failed to send last metrics - timeout",
+						zap.String("agent_ip", localIP))
 				case <-sendCtx.Done():
-					logger.Warn("Failed to send last metrics - send context cancelled")
+					logger.Warn("Failed to send last metrics - send context cancelled",
+						zap.String("agent_ip", localIP))
 				}
 
 				cancelSend()
@@ -164,9 +200,10 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	logger.Info("Shutting down agent gracefully...")
+	logger.Info("Shutting down agent gracefully...",
+		zap.String("agent_ip", localIP))
 
 	wg.Wait()
 
-	logger.Info("Agent stopped")
+	logger.Info("Agent stopped", zap.String("agent_ip", localIP))
 }

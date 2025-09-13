@@ -41,6 +41,9 @@ var (
 	FlagCryptoKey string
 
 	FlagConfigFile string
+
+	// FlagTrustedSubnet - CIDR подсеть доверенных IP адресов (флаг -t, переменная TRUSTED_SUBNET)
+	FlagTrustedSubnet string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
@@ -55,6 +58,7 @@ var (
 //	-d : строка подключения к БД (по умолчанию "")
 //	-k : ключ для подписи (по умолчанию "+randomSrting+")
 //	-с : ассиметричное шифрование (по умолчанию не используется)
+//	-t : доверенная подсеть в формате CIDR (по умолчанию "")
 //
 // Пример использования:
 //
@@ -71,6 +75,7 @@ func ParseFlags() {
 	flag.StringVar(&FlagCryptoKey, "crypto-key", "", "path to file with private key for encryption")
 	flag.StringVar(&FlagConfigFile, "config", "", "path to configuration file")
 	flag.StringVar(&FlagConfigFile, "c", "", "path to configuration file (shorthand)")
+	flag.StringVar(&FlagTrustedSubnet, "t", "", "trusted subnet in CIDR format")
 
 	flag.Parse()
 
@@ -117,6 +122,10 @@ func applyFileConfig(config *config.ServerConfig) {
 	if FlagCryptoKey == "" && config.CryptoKey != "" {
 		FlagCryptoKey = config.CryptoKey
 	}
+
+	if FlagTrustedSubnet == "" && config.TrustedSubnet != "" {
+		FlagTrustedSubnet = config.TrustedSubnet
+	}
 }
 
 func readEnvVars() {
@@ -159,6 +168,10 @@ func readEnvVars() {
 	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
 		FlagConfigFile = envConfigFile
 	}
+
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		FlagTrustedSubnet = envTrustedSubnet
+	}
 }
 
 func validateAndLogFlags() {
@@ -178,5 +191,6 @@ func validateAndLogFlags() {
 		zap.String("key", config.MaskSensitive(FlagKey)),
 		zap.String("crypto_key", FlagCryptoKey),
 		zap.String("config_file", FlagConfigFile),
+		zap.String("trusted_subnet", FlagTrustedSubnet), 
 	)
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,6 +20,7 @@ type ServerConfig struct {
 	Key             string   `json:"key"`
 	CryptoKey       string   `json:"crypto_key"`
 	ConfigFile      string   `json:"-"`
+	TrustedSubnet   string   `json:"trusted_subnet"`
 }
 
 type AgentConfig struct {
@@ -113,4 +115,22 @@ func MaskSensitive(value string) string {
 		return "****"
 	}
 	return value[:2] + "****" + value[len(value)-2:]
+}
+
+func IsIPInTrustedSubnet(ipStr, trustedSubnet string) (bool, error) {
+	if trustedSubnet == "" {
+		return true, nil
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false, fmt.Errorf("invalid IP address: %s", ipStr)
+	}
+
+	_, ipNet, err := net.ParseCIDR(trustedSubnet)
+	if err != nil {
+		return false, fmt.Errorf("invalid CIDR format: %s", trustedSubnet)
+	}
+
+	return ipNet.Contains(ip), nil
 }

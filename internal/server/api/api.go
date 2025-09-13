@@ -4,6 +4,12 @@
 // - Инициализацию роутера Gin
 // - Регистрацию middleware
 // - Маршрутизацию запросов
+// Package api предоставляет HTTP API сервера метрик.
+//
+// Пакет содержит:
+// - Инициализацию роутера Gin
+// - Регистрацию middleware
+// - Маршрутизацию запросов
 package api
 
 import (
@@ -40,14 +46,7 @@ func InitRouter() *gin.Engine {
 	router := gin.Default()
 
 	registerMiddlewares(router)
-
-	router.GET("/ping", services.CheckDBConnection)
-	router.GET("/", services.GetAllMetrics)
-	router.GET("/value/", services.GetMetricFromJSON)
-	router.POST("/update/", services.UpdateMetricFromJSON)
-	router.POST("/updates/", services.UpdateSliceOfMetrics)
-	router.GET("/value/:type/:name", services.GetMetricFromURL)
-	router.POST("/update/:type/:name/:value", services.UpdateMetricFromURL)
+	registerRoutes(router)
 
 	return router
 }
@@ -77,4 +76,22 @@ func registerMiddlewares(r *gin.Engine) {
 	r.Use(middlewares.GZipCompress())
 	r.Use(middlewares.RequestLogger(logger))
 	r.Use(middlewares.ResponseLogger(logger))
+}
+
+// registerRoutes регистрирует маршруты с соответствующими middleware
+func registerRoutes(r *gin.Engine) {
+	// Маршруты только для чтения (доступны всем)
+	r.GET("/ping", services.CheckDBConnection)
+	r.GET("/", services.GetAllMetrics)
+	r.GET("/value/", services.GetMetricFromJSON)
+	r.GET("/value/:type/:name", services.GetMetricFromURL)
+
+	// Маршруты для обновления (требуют проверки trusted subnet)
+	updateGroup := r.Group("/")
+	updateGroup.Use(middlewares.TrustedSubnetMiddleware())
+	{
+		updateGroup.POST("/update/", services.UpdateMetricFromJSON)
+		updateGroup.POST("/updates/", services.UpdateSliceOfMetrics)
+		updateGroup.POST("/update/:type/:name/:value", services.UpdateMetricFromURL)
+	}
 }

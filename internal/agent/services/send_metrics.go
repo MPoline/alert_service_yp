@@ -139,20 +139,23 @@ func CreateMetrics(s *storage.MemStorage) (metricsStorage []models.Metrics) {
 // Параметры:
 //   - s *storage.MemStorage: хранилище метрик
 //   - metricsStorage []models.Metrics: метрики для отправки
+//   - realIP string: IP адрес агента для заголовка X-Real-IP
 //
 // Особенности:
 //   - Использует gzip сжатие
 //   - Добавляет HMAC-SHA256 подпись
 //   - Поддерживает асимметричное шифрование RSA-OAEP
+//   - Добавляет заголовок X-Real-IP с IP адресом агента
 //   - Выполняет 3 попытки отправки с экспоненциальной задержкой
 //   - Логирует процесс отправки
 //
 // Пример использования:
 //
 //	metrics := CreateMetrics(s)
-//	SendMetrics(s, metrics)
-func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
-	zap.L().Info("Start SendMetrics")
+//	realIP := getLocalIP()
+//	SendMetrics(s, metrics, realIP)
+func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics, realIP string) {
+	zap.L().Info("Start SendMetrics", zap.String("real_ip", realIP))
 	client := resty.New()
 
 	batch := map[string][]models.Metrics{"metrics": metricsStorage}
@@ -212,6 +215,7 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 		"Content-Type":     contentType,
 		"Content-Encoding": "gzip",
 		"HashSHA256":       base64.StdEncoding.EncodeToString(hash),
+		"X-Real-IP":        realIP,
 	}
 
 	if publicKey != nil {
@@ -224,7 +228,8 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 		zap.Int("json_size", len(jsonBody)),
 		zap.Int("request_size", len(requestData)),
 		zap.Int("compressed_size", len(compressedData)),
-		zap.Bool("encrypted", publicKey != nil))
+		zap.Bool("encrypted", publicKey != nil),
+		zap.String("real_ip", realIP))
 
 	for attempt, interval := range intervals {
 		req := client.R().
@@ -233,7 +238,8 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 
 		zap.L().Debug("Sending request attempt",
 			zap.Int("attempt", attempt+1),
-			zap.Int("total_attempts", len(intervals)))
+			zap.Int("total_attempts", len(intervals)),
+			zap.String("real_ip", realIP))
 
 		resp, err := req.Post(serverURL)
 		if err != nil {
@@ -261,7 +267,8 @@ func SendMetrics(s *storage.MemStorage, metricsStorage []models.Metrics) {
 			zap.Int("metrics_count", len(metricsStorage)),
 			zap.Int("compressed_size", len(compressedData)),
 			zap.Bool("encrypted", publicKey != nil),
-			zap.String("server_response", resp.String()))
+			zap.String("server_response", resp.String()),
+			zap.String("real_ip", realIP))
 		return
 	}
 
