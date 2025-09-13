@@ -5,5 +5,6 @@
     "restore": true,
     "database_dsn": "",
     "key": "my-secret-key",
-    "crypto_key": "keys/private_key.pem"
+    "crypto_key": "keys/private_key.pem",
+    "trusted_subnet": "192.168.1.0/24"
 }
