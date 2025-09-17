@@ -35,12 +35,8 @@ func InitGRPCClient() error {
 		address = flags.FlagRunAddr
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+	conn, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC server: %w", err)
 	}
@@ -72,7 +68,7 @@ func CloseGRPCClient() {
 		if err := grpcClient.conn.Close(); err != nil {
 			zap.L().Error("Failed to close gRPC connection", zap.Error(err))
 		} else {
-			zap.L().Info("gRPC connection closed successfully")
+			zap.L().Info("GPRC connection closed successfully")
 		}
 	}
 }
