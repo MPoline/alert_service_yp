@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -43,10 +44,11 @@ func main() {
 
 	flags.ParseFlags()
 
+	var privateKey *rsa.PrivateKey
 	if flags.FlagCryptoKey != "" {
 		logger.Info("Initializing decryption", zap.String("private_key", flags.FlagCryptoKey))
 
-		privateKey, err := crypto.LoadPrivateKey(flags.FlagCryptoKey)
+		privateKey, err = crypto.LoadPrivateKey(flags.FlagCryptoKey)
 		if err != nil {
 			logger.Error("Failed to load private key",
 				zap.String("path", flags.FlagCryptoKey),
@@ -58,6 +60,14 @@ func main() {
 		logger.Info("Decryption initialized successfully")
 	} else {
 		logger.Info("Decryption disabled - no crypto key provided")
+	}
+
+	if flags.FlagGRPCAddress != "" {
+		if err := services.InitGRPCServer(privateKey, flags.FlagKey); err != nil {
+			logger.Error("Failed to start gRPC server", zap.Error(err))
+			os.Exit(1)
+		}
+		defer services.StopGRPCServer()
 	}
 
 	r := api.InitRouter()
@@ -113,6 +123,10 @@ func main() {
 	}()
 
 	logger.Info("Server is running", zap.String("address", flags.FlagRunAddr))
+
+	if flags.FlagGRPCAddress != "" {
+		logger.Info("gRPC server is running", zap.String("address", flags.FlagGRPCAddress))
+	}
 
 	<-ctx.Done()
 	logger.Info("Shutting down server gracefully...")

@@ -21,6 +21,8 @@ type ServerConfig struct {
 	CryptoKey       string   `json:"crypto_key"`
 	ConfigFile      string   `json:"-"`
 	TrustedSubnet   string   `json:"trusted_subnet"`
+	GRPCAddress     string   `json:"grpc_address"` // Новое поле для gRPC адреса
+	UseGRPC         bool     `json:"use_grpc"`     // Новое поле для использования gRPC
 }
 
 type AgentConfig struct {
@@ -30,6 +32,8 @@ type AgentConfig struct {
 	CryptoKey      string   `json:"crypto_key"`
 	Key            string   `json:"key"`
 	ConfigFile     string   `json:"-"`
+	UseGRPC        bool     `json:"use_grpc"`     // Новое поле для использования gRPC
+	GRPCAddress    string   `json:"grpc_address"` // Новое поле для gRPC адреса
 }
 
 func (d Duration) MarshalJSON() ([]byte, error) {

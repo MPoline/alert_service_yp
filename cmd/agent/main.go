@@ -33,9 +33,6 @@ var (
 	memStorage = storage.NewMemStorage()
 )
 
-// getLocalIP получает локальный IP адрес агента для заголовка X-Real-IP
-// Использует UDP соединение к публичному DNS для определения внешнего IP
-// В случае ошибки возвращает fallback на localhost (127.0.0.1)
 func getLocalIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -70,7 +67,7 @@ func main() {
 	flags.ParseFlags()
 
 	localIP := getLocalIP()
-	logger.Info("Using local IP for X-Real-IP header",
+	logger.Info("Using local IP",
 		zap.String("ip", localIP))
 
 	if flags.FlagCryptoKey != "" {
@@ -92,6 +89,29 @@ func main() {
 		logger.Info("Encryption initialized successfully")
 	} else {
 		logger.Info("Encryption disabled - no crypto key provided")
+	}
+
+	if flags.FlagGRPC {
+		grpcAddress := flags.FlagGRPCAddress
+		if grpcAddress == "" {
+			grpcAddress = flags.FlagRunAddr
+		}
+
+		logger.Info("Initializing gRPC client",
+			zap.String("address", grpcAddress))
+
+		if err := services.InitGRPCClient(); err != nil {
+			logger.Error("Failed to initialize gRPC client",
+				zap.String("address", grpcAddress),
+				zap.Error(err))
+			os.Exit(1)
+		}
+		defer services.CloseGRPCClient()
+
+		logger.Info("gRPC client initialized successfully")
+	} else {
+		logger.Info("Using HTTP protocol",
+			zap.String("address", flags.FlagRunAddr))
 	}
 
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
