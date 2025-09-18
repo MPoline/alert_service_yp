@@ -273,6 +273,86 @@ func (x *UpdateMetricResponse) GetError() string {
 	return ""
 }
 
+type PingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PingRequest) Reset() {
+	*x = PingRequest{}
+	mi := &file_internal_proto_metrics_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PingRequest) ProtoMessage() {}
+
+func (x *PingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_proto_metrics_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PingRequest.ProtoReflect.Descriptor instead.
+func (*PingRequest) Descriptor() ([]byte, []int) {
+	return file_internal_proto_metrics_proto_rawDescGZIP(), []int{5}
+}
+
+type PingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PingResponse) Reset() {
+	*x = PingResponse{}
+	mi := &file_internal_proto_metrics_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PingResponse) ProtoMessage() {}
+
+func (x *PingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_proto_metrics_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PingResponse.ProtoReflect.Descriptor instead.
+func (*PingResponse) Descriptor() ([]byte, []int) {
+	return file_internal_proto_metrics_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PingResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 var File_internal_proto_metrics_proto protoreflect.FileDescriptor
 
 const file_internal_proto_metrics_proto_rawDesc = "" +
@@ -291,10 +371,14 @@ const file_internal_proto_metrics_proto_rawDesc = "" +
 	"\x13UpdateMetricRequest\x12%\n" +
 	"\x06metric\x18\x01 \x01(\v2\r.proto.MetricR\x06metric\",\n" +
 	"\x14UpdateMetricResponse\x12\x14\n" +
-	"\x05error\x18\x01 \x01(\tR\x05error2\xa5\x01\n" +
+	"\x05error\x18\x01 \x01(\tR\x05error\"\r\n" +
+	"\vPingRequest\"&\n" +
+	"\fPingResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status2\xd6\x01\n" +
 	"\x0eMetricsService\x12J\n" +
 	"\rUpdateMetrics\x12\x1b.proto.UpdateMetricsRequest\x1a\x1c.proto.UpdateMetricsResponse\x12G\n" +
-	"\fUpdateMetric\x12\x1a.proto.UpdateMetricRequest\x1a\x1b.proto.UpdateMetricResponseB\x12Z\x10./internal/protob\x06proto3"
+	"\fUpdateMetric\x12\x1a.proto.UpdateMetricRequest\x1a\x1b.proto.UpdateMetricResponse\x12/\n" +
+	"\x04Ping\x12\x12.proto.PingRequest\x1a\x13.proto.PingResponseB\x12Z\x10./internal/protob\x06proto3"
 
 var (
 	file_internal_proto_metrics_proto_rawDescOnce sync.Once
@@ -308,23 +392,27 @@ func file_internal_proto_metrics_proto_rawDescGZIP() []byte {
 	return file_internal_proto_metrics_proto_rawDescData
 }
 
-var file_internal_proto_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_internal_proto_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_internal_proto_metrics_proto_goTypes = []any{
 	(*Metric)(nil),                // 0: proto.Metric
 	(*UpdateMetricsRequest)(nil),  // 1: proto.UpdateMetricsRequest
 	(*UpdateMetricsResponse)(nil), // 2: proto.UpdateMetricsResponse
 	(*UpdateMetricRequest)(nil),   // 3: proto.UpdateMetricRequest
 	(*UpdateMetricResponse)(nil),  // 4: proto.UpdateMetricResponse
+	(*PingRequest)(nil),           // 5: proto.PingRequest
+	(*PingResponse)(nil),          // 6: proto.PingResponse
 }
 var file_internal_proto_metrics_proto_depIdxs = []int32{
 	0, // 0: proto.UpdateMetricsRequest.metrics:type_name -> proto.Metric
 	0, // 1: proto.UpdateMetricRequest.metric:type_name -> proto.Metric
 	1, // 2: proto.MetricsService.UpdateMetrics:input_type -> proto.UpdateMetricsRequest
 	3, // 3: proto.MetricsService.UpdateMetric:input_type -> proto.UpdateMetricRequest
-	2, // 4: proto.MetricsService.UpdateMetrics:output_type -> proto.UpdateMetricsResponse
-	4, // 5: proto.MetricsService.UpdateMetric:output_type -> proto.UpdateMetricResponse
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
+	5, // 4: proto.MetricsService.Ping:input_type -> proto.PingRequest
+	2, // 5: proto.MetricsService.UpdateMetrics:output_type -> proto.UpdateMetricsResponse
+	4, // 6: proto.MetricsService.UpdateMetric:output_type -> proto.UpdateMetricResponse
+	6, // 7: proto.MetricsService.Ping:output_type -> proto.PingResponse
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -341,7 +429,7 @@ func file_internal_proto_metrics_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_proto_metrics_proto_rawDesc), len(file_internal_proto_metrics_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -11,8 +11,6 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/hasher"
 	"github.com/MPoline/alert_service_yp/internal/models"
-	"github.com/MPoline/alert_service_yp/internal/server/flags"
-	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -65,7 +63,7 @@ import (
 //
 //	Ответ:
 //	  {"id":"alloc","type":"gauge","value":123.456}
-func GetMetricFromJSON(c *gin.Context) {
+func (h *ServiceHandler) GetMetricFromJSON(c *gin.Context) {
 	var (
 		req  models.Metrics
 		resp models.Metrics
@@ -78,9 +76,8 @@ func GetMetricFromJSON(c *gin.Context) {
 		zap.L().Error("Error in read request: ", zap.Error(err))
 		return
 	}
-
-	h := hasher.InitHasher("SHA256")
-	hash, err := h.CalculateHash(data, []byte(flags.FlagKey))
+	hs := hasher.InitHasher("SHA256")
+	hash, err := hs.CalculateHash(data, []byte(h.key))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed calculate sha256"})
 		zap.L().Error("Failed calculate sha256: ", zap.Error(err))
@@ -96,7 +93,7 @@ func GetMetricFromJSON(c *gin.Context) {
 
 	if !(hmac.Equal(hash, hashFromHeader)) {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Signature hash does not match"})
-		zap.L().Error("Signature hash does not match: ", zap.Error(err))
+		zap.L().Error("Signature hash does not match")
 		return
 	}
 
@@ -107,7 +104,7 @@ func GetMetricFromJSON(c *gin.Context) {
 		return
 	}
 
-	resp, err = storage.MetricStorage.GetMetric(ctx, req.MType, req.ID)
+	resp, err = h.storage.GetMetric(ctx, req.MType, req.ID)
 	if err != nil {
 		if err.Error() == "MetricNotFound" {
 			c.JSON(http.StatusNotFound, gin.H{"Error": "MetricNotFound"})
@@ -140,28 +137,29 @@ func GetMetricFromJSON(c *gin.Context) {
 //  3. Возвращает значение метрики в текстовом формате
 //
 // Параметры URL:
-//  - type: тип метрики (gauge или counter)
-//  - name: имя метрики
+//   - type: тип метрики (gauge или counter)
+//   - name: имя метрики
 //
 // Возможные ответы:
-//  - 200 OK: успешное получение метрики
-//    Тело: строковое значение метрики
-//  - 400 Bad Request: неверный тип метрики
-//  - 404 Not Found: метрика не найдена или не указано имя
+//   - 200 OK: успешное получение метрики
+//     Тело: строковое значение метрики
+//   - 400 Bad Request: неверный тип метрики
+//   - 404 Not Found: метрика не найдена или не указано имя
 //
 // Примеры:
-//  Запрос:
-//    GET /value/gauge/alloc
 //
-//  Ответ:
-//    123.456
+//	Запрос:
+//	  GET /value/gauge/alloc
 //
-//  Запрос:
-//    GET /value/counter/pollCount
+//	Ответ:
+//	  123.456
 //
-//  Ответ:
-//    42
-func GetMetricFromURL(c *gin.Context) {
+//	Запрос:
+//	  GET /value/counter/pollCount
+//
+//	Ответ:
+//	  42
+func (h *ServiceHandler) GetMetricFromURL(c *gin.Context) {
 	metricType := c.Param("type")
 	metricName := c.Param("name")
 
@@ -173,7 +171,7 @@ func GetMetricFromURL(c *gin.Context) {
 		return
 	}
 
-	resp, err := storage.MetricStorage.GetMetric(ctx, metricType, metricName)
+	resp, err := h.storage.GetMetric(ctx, metricType, metricName)
 	if err != nil {
 		if err.Error() == "Unknown" {
 			c.JSON(http.StatusBadRequest, gin.H{"Error": "Unknown metric"})
@@ -192,5 +190,4 @@ func GetMetricFromURL(c *gin.Context) {
 	if resp.MType == "counter" {
 		c.String(http.StatusOK, strconv.FormatInt(*resp.Delta, 10))
 	}
-
 }

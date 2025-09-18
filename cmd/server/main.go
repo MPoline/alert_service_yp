@@ -44,6 +44,48 @@ func main() {
 
 	flags.ParseFlags()
 
+	var storageType string
+	if flags.FlagDatabaseDSN == "" {
+		storageType = "memory"
+	} else {
+		storageType = "database"
+	}
+
+	metricStorage := storage.NewStorage(storageType)
+	if metricStorage == nil {
+		logger.Fatal("Failed to create storage", zap.String("type", storageType))
+	}
+	defer metricStorage.Close()
+
+	logger.Info("Storage initialized", zap.String("storageType", storageType))
+
+	if _, ok := metricStorage.(*storage.MemStorage); ok && flags.FlagRestore {
+		if err := storage.LoadFromFile(metricStorage, flags.FlagFileStoragePath); err != nil {
+			logger.Warn("Error reading from file", zap.Error(err))
+		}
+	}
+
+	if _, ok := metricStorage.(*storage.MemStorage); ok {
+		storeInterval := time.Second * time.Duration(flags.FlagStoreInterval)
+		if flags.FlagStoreInterval > 0 {
+			ticker := time.NewTicker(storeInterval)
+			defer ticker.Stop()
+
+			go func() {
+				for {
+					select {
+					case <-ticker.C:
+						if err := storage.SaveToFile(metricStorage, flags.FlagFileStoragePath); err != nil {
+							logger.Error("Error saving data to file", zap.Error(err))
+						}
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+		}
+	}
+
 	var privateKey *rsa.PrivateKey
 	if flags.FlagCryptoKey != "" {
 		logger.Info("Initializing decryption", zap.String("private_key", flags.FlagCryptoKey))
@@ -55,61 +97,24 @@ func main() {
 				zap.Error(err))
 			os.Exit(1)
 		}
-
-		services.InitDecryption(privateKey)
 		logger.Info("Decryption initialized successfully")
 	} else {
 		logger.Info("Decryption disabled - no crypto key provided")
 	}
 
+	serviceHandler := services.NewServiceHandler(metricStorage, privateKey, flags.FlagKey)
+
+	apiInstance := api.NewAPI(serviceHandler)
+
+	r := apiInstance.InitRouter()
+
 	if flags.FlagGRPCAddress != "" {
-		if err := services.InitGRPCServer(privateKey, flags.FlagKey); err != nil {
+		if err := services.InitGRPCServer(privateKey, flags.FlagKey, metricStorage); err != nil {
 			logger.Error("Failed to start gRPC server", zap.Error(err))
 			os.Exit(1)
 		}
 		defer services.StopGRPCServer()
 	}
-
-	r := api.InitRouter()
-
-	var storageType string
-
-	if flags.FlagDatabaseDSN == "" {
-		storageType = "memory"
-	} else {
-		storageType = "database"
-	}
-
-	storage.InitStorage(storageType)
-	logger.Info("Storage type: ", zap.String("storageType", storageType))
-
-	if storageType == "memory" {
-		if flags.FlagRestore {
-			err := storage.LoadFromFile(storage.MetricStorage, flags.FlagFileStoragePath)
-			if err != nil {
-				logger.Warn("Error read from file: ", zap.Error(err))
-			}
-		}
-
-		storeInterval := time.Second * time.Duration(flags.FlagStoreInterval)
-		if flags.FlagStoreInterval > 0 {
-			ticker := time.NewTicker(storeInterval)
-			defer ticker.Stop()
-
-			go func() {
-				for {
-					select {
-					case <-ticker.C:
-						storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath)
-					case <-ctx.Done():
-						return
-					}
-				}
-			}()
-		}
-	}
-
-	defer storage.MetricStorage.Close()
 
 	server := &http.Server{
 		Addr:    flags.FlagRunAddr,
@@ -134,9 +139,9 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if storageType == "memory" {
+	if _, ok := metricStorage.(*storage.MemStorage); ok {
 		logger.Info("Saving data to file before shutdown...")
-		if err := storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath); err != nil {
+		if err := storage.SaveToFile(metricStorage, flags.FlagFileStoragePath); err != nil {
 			logger.Error("Error saving data to file", zap.Error(err))
 		}
 	}

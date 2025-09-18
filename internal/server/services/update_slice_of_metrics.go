@@ -12,8 +12,6 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/hasher"
 	"github.com/MPoline/alert_service_yp/internal/models"
-	"github.com/MPoline/alert_service_yp/internal/server/flags"
-	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -71,7 +69,7 @@ import (
 //	      {"id":"pollCount","type":"counter","delta":1}
 //	    ]
 //	  }
-func UpdateSliceOfMetrics(c *gin.Context) {
+func (h *ServiceHandler) UpdateSliceOfMetrics(c *gin.Context) {
 	var req models.SliceMetrics
 
 	ctx := c.Request.Context()
@@ -83,13 +81,15 @@ func UpdateSliceOfMetrics(c *gin.Context) {
 		return
 	}
 
-	h := hasher.InitHasher("SHA256")
-	hash, err := h.CalculateHash(data, []byte(flags.FlagKey))
+	// Используем ключ из ServiceHandler вместо глобального флага
+	hasherInstance := hasher.InitHasher("SHA256")
+	hash, err := hasherInstance.CalculateHash(data, []byte(h.key))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed calculate sha256"})
 		zap.L().Error("Failed calculate sha256: ", zap.Error(err))
 		return
 	}
+
 	zap.L().Info("===================================")
 	hashStr := base64.StdEncoding.EncodeToString(hash)
 	hashHeader := c.Request.Header.Get("HashSHA256")
@@ -106,7 +106,7 @@ func UpdateSliceOfMetrics(c *gin.Context) {
 
 	if !(hmac.Equal(hash, hashFromHeader)) {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Signature hash does not match"})
-		zap.L().Error("Signature hash does not match: ", zap.Error(err))
+		zap.L().Error("Signature hash does not match")
 		return
 	}
 
@@ -117,7 +117,8 @@ func UpdateSliceOfMetrics(c *gin.Context) {
 		return
 	}
 
-	err = storage.MetricStorage.UpdateSliceOfMetrics(ctx, req)
+	// Используем переданное хранилище вместо глобальной переменной
+	err = h.storage.UpdateSliceOfMetrics(ctx, req)
 
 	if err != nil {
 		if errors.Is(err, models.ErrInvalidMetricName) || errors.Is(err, models.ErrInvalidMetricType) {
@@ -145,5 +146,4 @@ func UpdateSliceOfMetrics(c *gin.Context) {
 	c.Header("Date", time.Now().UTC().Format(http.TimeFormat))
 	c.Header("HashSHA256", base64.StdEncoding.EncodeToString(hash))
 	c.String(http.StatusOK, string(respBytes))
-
 }

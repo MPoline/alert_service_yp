@@ -26,6 +26,7 @@ type MetricsServer struct {
 	proto.UnimplementedMetricsServiceServer
 	privKey *rsa.PrivateKey
 	key     string
+	storage storage.Storage
 }
 
 var (
@@ -34,10 +35,11 @@ var (
 )
 
 // InitGRPCServer инициализирует и запускает gRPC сервер
-func InitGRPCServer(privKey *rsa.PrivateKey, key string) error {
+func InitGRPCServer(privKey *rsa.PrivateKey, key string, storage storage.Storage) error {
 	metricsServer = &MetricsServer{
 		privKey: privKey,
 		key:     key,
+		storage: storage,
 	}
 
 	grpcServer = grpc.NewServer(
@@ -100,7 +102,7 @@ func (s *MetricsServer) UpdateMetrics(ctx context.Context, req *proto.UpdateMetr
 	}
 
 	if len(metrics) > 0 {
-		if err := storage.MetricStorage.UpdateSliceOfMetrics(ctx, models.SliceMetrics{Metrics: metrics}); err != nil {
+		if err := s.storage.UpdateSliceOfMetrics(ctx, models.SliceMetrics{Metrics: metrics}); err != nil {
 			errors = append(errors, fmt.Sprintf("batch update failed: %v", err))
 			zap.L().Error("Failed to update metrics batch", zap.Error(err))
 		}
@@ -131,7 +133,7 @@ func (s *MetricsServer) UpdateMetric(ctx context.Context, req *proto.UpdateMetri
 		}, nil
 	}
 
-	if err := storage.MetricStorage.UpdateMetric(ctx, metric); err != nil {
+	if err := s.storage.UpdateMetric(ctx, metric); err != nil {
 		return &proto.UpdateMetricResponse{
 			Error: fmt.Sprintf("failed to update metric %s: %v", req.Metric.Id, err),
 		}, nil
@@ -145,18 +147,32 @@ func (s *MetricsServer) UpdateMetric(ctx context.Context, req *proto.UpdateMetri
 
 // processMetric обрабатывает одну метрику и возвращает модель для storage
 func (s *MetricsServer) processMetric(ctx context.Context, metric *proto.Metric) (models.Metrics, error) {
+	if err := s.validateAndDecryptMetric(metric); err != nil {
+		return models.Metrics{}, err
+	}
+
+	return s.convertProtoToModel(metric)
+}
+
+// validateAndDecryptMetric проверяет и расшифровывает метрику
+func (s *MetricsServer) validateAndDecryptMetric(metric *proto.Metric) error {
 	if s.privKey != nil {
 		if err := s.decryptMetricValue(metric); err != nil {
-			return models.Metrics{}, fmt.Errorf("decryption failed: %w", err)
+			return fmt.Errorf("decryption failed: %w", err)
 		}
 	}
 
 	if s.key != "" {
 		if !s.verifyMetricHash(metric) {
-			return models.Metrics{}, fmt.Errorf("signature verification failed")
+			return fmt.Errorf("signature verification failed")
 		}
 	}
 
+	return nil
+}
+
+// convertProtoToModel преобразует protobuf метрику в модель хранилища
+func (s *MetricsServer) convertProtoToModel(metric *proto.Metric) (models.Metrics, error) {
 	result := models.Metrics{
 		ID:    metric.Id,
 		MType: metric.Mtype,
@@ -164,11 +180,19 @@ func (s *MetricsServer) processMetric(ctx context.Context, metric *proto.Metric)
 
 	switch metric.Mtype {
 	case "counter":
+		if metric.Delta == 0 && metric.Hash != "" {
+			return models.Metrics{}, fmt.Errorf("counter value is required")
+		}
 		delta := metric.Delta
 		result.Delta = &delta
+
 	case "gauge":
+		if metric.Value == 0 && metric.Hash != "" {
+			return models.Metrics{}, fmt.Errorf("gauge value is required")
+		}
 		value := metric.Value
 		result.Value = &value
+
 	default:
 		return models.Metrics{}, fmt.Errorf("unknown metric type: %s", metric.Mtype)
 	}

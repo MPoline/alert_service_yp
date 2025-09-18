@@ -2,12 +2,8 @@ package services
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
@@ -21,15 +17,12 @@ import (
 )
 
 type GRPCClient struct {
-	client proto.MetricsServiceClient
-	conn   *grpc.ClientConn
-	pubKey *rsa.PublicKey
+	client          proto.MetricsServiceClient
+	conn            *grpc.ClientConn
+	metricProcessor *MetricProcessor
 }
 
-var grpcClient *GRPCClient
-
-// InitGRPCClient инициализирует gRPC клиент для отправки метрик
-func InitGRPCClient() error {
+func NewGRPCClient() (*GRPCClient, error) {
 	address := flags.FlagGRPCAddress
 	if address == "" {
 		address = flags.FlagRunAddr
@@ -38,7 +31,7 @@ func InitGRPCClient() error {
 	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("failed to connect to gRPC server: %w", err)
+		return nil, fmt.Errorf("failed to connect to gRPC server: %w", err)
 	}
 
 	client := proto.NewMetricsServiceClient(conn)
@@ -48,24 +41,26 @@ func InitGRPCClient() error {
 		pubKey, err = crypto.LoadPublicKey(flags.FlagCryptoKey)
 		if err != nil {
 			conn.Close()
-			return fmt.Errorf("failed to load public key: %w", err)
+			return nil, fmt.Errorf("failed to load public key: %w", err)
 		}
 	}
 
-	grpcClient = &GRPCClient{
-		client: client,
-		conn:   conn,
-		pubKey: pubKey,
+	metricProcessor := NewMetricProcessor(pubKey, flags.FlagKey)
+
+	grpcClient := &GRPCClient{
+		client:          client,
+		conn:            conn,
+		metricProcessor: metricProcessor,
 	}
 
 	zap.L().Info("gRPC client initialized successfully",
 		zap.String("address", address))
-	return nil
+	return grpcClient, nil
 }
 
-func CloseGRPCClient() {
-	if grpcClient != nil && grpcClient.conn != nil {
-		if err := grpcClient.conn.Close(); err != nil {
+func (c *GRPCClient) Close() {
+	if c.conn != nil {
+		if err := c.conn.Close(); err != nil {
 			zap.L().Error("Failed to close gRPC connection", zap.Error(err))
 		} else {
 			zap.L().Info("GPRC connection closed successfully")
@@ -73,41 +68,12 @@ func CloseGRPCClient() {
 	}
 }
 
-// SendMetricsGRPC отправляет метрики на сервер через gRPC
-func SendMetricsGRPC(memStorage *storage.MemStorage, metrics []models.Metrics, localIP string) {
-	if grpcClient == nil {
-		zap.L().Error("gRPC client not initialized")
-		return
-	}
-
+// SendMetrics отправляет метрики на сервер через gRPC
+func (c *GRPCClient) SendMetrics(memStorage *storage.MemStorage, metrics []models.Metrics, localIP string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	protoMetrics := make([]*proto.Metric, 0, len(metrics))
-	for _, m := range metrics {
-		protoMetric, err := convertToProtoMetric(m)
-		if err != nil {
-			zap.L().Error("Failed to convert metric to proto",
-				zap.String("metric_id", m.ID),
-				zap.Error(err))
-			continue
-		}
-
-		if grpcClient.pubKey != nil {
-			if err := encryptMetricValue(protoMetric, grpcClient.pubKey); err != nil {
-				zap.L().Error("Failed to encrypt metric",
-					zap.String("metric_id", m.ID),
-					zap.Error(err))
-				continue
-			}
-		}
-
-		if flags.FlagKey != "" {
-			protoMetric.Hash = calculateMetricHash(protoMetric, flags.FlagKey)
-		}
-
-		protoMetrics = append(protoMetrics, protoMetric)
-	}
+	protoMetrics := c.metricProcessor.ProcessMetrics(metrics)
 
 	if len(protoMetrics) == 0 {
 		zap.L().Warn("No valid metrics to send via gRPC")
@@ -115,7 +81,7 @@ func SendMetricsGRPC(memStorage *storage.MemStorage, metrics []models.Metrics, l
 	}
 
 	req := &proto.UpdateMetricsRequest{Metrics: protoMetrics}
-	resp, err := grpcClient.client.UpdateMetrics(ctx, req)
+	resp, err := c.client.UpdateMetrics(ctx, req)
 	if err != nil {
 		zap.L().Error("Failed to send metrics via gRPC",
 			zap.Error(err),
@@ -136,83 +102,11 @@ func SendMetricsGRPC(memStorage *storage.MemStorage, metrics []models.Metrics, l
 		zap.String("agent_ip", localIP))
 }
 
-// convertToProtoMetric конвертирует внутреннюю модель метрики в protobuf
-func convertToProtoMetric(m models.Metrics) (*proto.Metric, error) {
-	protoMetric := &proto.Metric{
-		Id:    m.ID,
-		Mtype: m.MType,
-	}
-
-	switch m.MType {
-	case "counter":
-		if m.Delta == nil {
-			return nil, fmt.Errorf("counter metric %s has no delta value", m.ID)
-		}
-		protoMetric.Delta = *m.Delta
-
-	case "gauge":
-		if m.Value == nil {
-			return nil, fmt.Errorf("gauge metric %s has no value", m.ID)
-		}
-		protoMetric.Value = *m.Value
-
-	default:
-		return nil, fmt.Errorf("unknown metric type: %s", m.MType)
-	}
-
-	return protoMetric, nil
-}
-
-// encryptMetricValue шифрует значение метрики с использованием публичного ключа
-func encryptMetricValue(metric *proto.Metric, pubKey *rsa.PublicKey) error {
-	var dataToEncrypt []byte
-
-	switch metric.Mtype {
-	case "counter":
-		dataToEncrypt = []byte(strconv.FormatInt(metric.Delta, 10))
-	case "gauge":
-		dataToEncrypt = []byte(strconv.FormatFloat(metric.Value, 'f', -1, 64))
-	default:
-		return fmt.Errorf("unknown metric type for encryption: %s", metric.Mtype)
-	}
-
-	encryptedData, err := crypto.EncryptLargeData(pubKey, dataToEncrypt)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt metric data: %w", err)
-	}
-
-	metric.Hash = hex.EncodeToString(encryptedData)
-
-	return nil
-}
-
-// calculateMetricHash вычисляет HMAC-SHA256 хеш для метрики
-func calculateMetricHash(metric *proto.Metric, key string) string {
-	var data string
-	switch metric.Mtype {
-	case "counter":
-		data = fmt.Sprintf("%s:counter:%d", metric.Id, metric.Delta)
-	case "gauge":
-		data = fmt.Sprintf("%s:gauge:%f", metric.Id, metric.Value)
-	default:
-		data = fmt.Sprintf("%s:%s", metric.Id, metric.Mtype)
-	}
-
-	h := hmac.New(sha256.New, []byte(key))
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-// HealthCheck проверяет доступность gRPC сервера
-func HealthCheck() error {
-	if grpcClient == nil {
-		return fmt.Errorf("gRPC client not initialized")
-	}
-
+func (c *GRPCClient) HealthCheck() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := grpcClient.client.UpdateMetrics(ctx, &proto.UpdateMetricsRequest{})
+	_, err := c.client.Ping(ctx, &proto.PingRequest{})
 	if err != nil {
 		return fmt.Errorf("gRPC health check failed: %w", err)
 	}

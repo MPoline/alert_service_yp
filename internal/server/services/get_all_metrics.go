@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -46,7 +45,7 @@ import (
 //	    </ul>
 //	  </body>
 //	</html>
-func GetAllMetrics(c *gin.Context) {
+func (h *ServiceHandler) GetAllMetrics(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	if len(c.Request.URL.String()) != 1 {
@@ -58,7 +57,7 @@ func GetAllMetrics(c *gin.Context) {
 	var sb strings.Builder
 	sb.WriteString("<html><body><h1>Metrics</h1><ul>")
 
-	metrics, err := storage.MetricStorage.GetAllMetrics(ctx)
+	metrics, err := h.storage.GetAllMetrics(ctx)
 
 	if err != nil {
 		sb.WriteString("<li> Error getting metric </li>")

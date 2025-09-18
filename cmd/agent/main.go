@@ -12,7 +12,6 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/agent/flags"
 	"github.com/MPoline/alert_service_yp/internal/agent/services"
-	"github.com/MPoline/alert_service_yp/internal/crypto"
 	"github.com/MPoline/alert_service_yp/internal/logging"
 	"github.com/MPoline/alert_service_yp/internal/models"
 	"github.com/MPoline/alert_service_yp/internal/storage"
@@ -70,49 +69,14 @@ func main() {
 	logger.Info("Using local IP",
 		zap.String("ip", localIP))
 
-	if flags.FlagCryptoKey != "" {
-		logger.Info("Initializing encryption", zap.String("public_key", flags.FlagCryptoKey))
-
-		publicKey, err := crypto.LoadPublicKey(flags.FlagCryptoKey)
-		if err != nil {
-			logger.Error("Failed to load public key",
-				zap.String("path", flags.FlagCryptoKey),
-				zap.Error(err))
-			os.Exit(1)
-		}
-
-		if err := services.InitEncryption(publicKey); err != nil {
-			logger.Error("Failed to initialize encryption", zap.Error(err))
-			os.Exit(1)
-		}
-
-		logger.Info("Encryption initialized successfully")
-	} else {
-		logger.Info("Encryption disabled - no crypto key provided")
+	clientManager, err := services.NewClientManager()
+	if err != nil {
+		logger.Error("Failed to initialize client manager", zap.Error(err))
+		os.Exit(1)
 	}
+	defer clientManager.Close()
 
-	if flags.FlagGRPC {
-		grpcAddress := flags.FlagGRPCAddress
-		if grpcAddress == "" {
-			grpcAddress = flags.FlagRunAddr
-		}
-
-		logger.Info("Initializing gRPC client",
-			zap.String("address", grpcAddress))
-
-		if err := services.InitGRPCClient(); err != nil {
-			logger.Error("Failed to initialize gRPC client",
-				zap.String("address", grpcAddress),
-				zap.Error(err))
-			os.Exit(1)
-		}
-		defer services.CloseGRPCClient()
-
-		logger.Info("gRPC client initialized successfully")
-	} else {
-		logger.Info("Using HTTP protocol",
-			zap.String("address", flags.FlagRunAddr))
-	}
+	logger.Info("Client manager initialized successfully")
 
 	pollInterval := time.Duration(flags.FlagPollInterval) * time.Second
 	reportInterval := time.Duration(flags.FlagReportInterval) * time.Second
@@ -135,7 +99,7 @@ func main() {
 				defer workersWG.Done()
 				for metrics := range sendCh {
 					if metrics != nil {
-						services.SendMetrics(memStorage, metrics, localIP)
+						clientManager.SendMetrics(memStorage, metrics, localIP)
 					}
 				}
 				logger.Debug("Worker stopped - channel closed",
@@ -145,6 +109,33 @@ func main() {
 		}
 		workersWG.Wait()
 		logger.Info("All workers stopped", zap.String("agent_ip", localIP))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := clientManager.HealthCheck(); err != nil {
+					logger.Warn("Health check failed",
+						zap.Error(err),
+						zap.String("agent_ip", localIP))
+				} else {
+					logger.Debug("Health check passed",
+						zap.String("agent_ip", localIP))
+				}
+
+			case <-ctx.Done():
+				logger.Info("Health check stopped",
+					zap.String("agent_ip", localIP))
+				return
+			}
+		}
 	}()
 
 	// Сбор метрик
