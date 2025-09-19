@@ -1,11 +1,3 @@
-// Package flags предоставляет функциональность для обработки флагов командной строки
-// и переменных окружения агента сбора метрик.
-//
-// Пакет поддерживает:
-// - Парсинг флагов командной строки
-// - Чтение значений из переменных окружения
-// - Приоритет переменных окружения над флагами
-// - Валидацию и логирование параметров
 package flags
 
 import (
@@ -38,36 +30,18 @@ var (
 	FlagCryptoKey string
 
 	FlagConfigFile string
+
+	// FlagGRPC - использовать gRPC вместо HTTP (флаг -grpc, переменная USE_GRPC)
+	FlagGRPC bool
+
+	// FlagGRPCAddress - адрес gRPC сервера (флаг -grpc-address, переменная GRPC_ADDRESS)
+	FlagGRPCAddress string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
-// Приоритет значений: переменные окружения > флаги командной строки > значения по умолчанию.
-//
-// Поддерживаемые флаги:
-//
-//	-a : адрес сервера (по умолчанию ":8080")
-//	-r : интервал отправки метрик в секундах (по умолчанию 10)
-//	-p : интервал сбора метрик в секундах (по умолчанию 2)
-//	-k : ключ для подписи (по умолчанию "+randomSrting+")
-//	-l : лимит одновременных запросов (по умолчанию 5)
-//	-с : ассиметричное шифрование (по умолчанию не используется)
-//
-// Поддерживаемые переменные окружения:
-//
-//	ADDRESS
-//	REPORT_INTERVAL
-//	POLL_INTERVAL
-//	KEY
-//	RATE_LIMIT
-//	CRYPTO_KEY
-//
-// Пример использования:
-//
-//	flags.ParseFlags()
-//	addr := flags.FlagRunAddr
 func ParseFlags() {
 	var err error
-	flag.StringVar(&FlagRunAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&FlagRunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.Int64Var(&FlagReportInterval, "r", 10, "frequency of sending metrics to the server")
 	flag.Int64Var(&FlagPollInterval, "p", 2, "frequency of polling metrics")
 	flag.StringVar(&FlagKey, "k", "+randomSrting+", "key hashSHA256")
@@ -75,6 +49,8 @@ func ParseFlags() {
 	flag.StringVar(&FlagCryptoKey, "crypto-key", "", "path to file with public key for encryption")
 	flag.StringVar(&FlagConfigFile, "config", "", "path to configuration file")
 	flag.StringVar(&FlagConfigFile, "c", "", "path to configuration file (shorthand)")
+	flag.BoolVar(&FlagGRPC, "grpc", false, "use gRPC instead of HTTP")
+	flag.StringVar(&FlagGRPCAddress, "grpc-address", "localhost:3200", "gRPC server address")
 
 	flag.Parse()
 
@@ -121,6 +97,12 @@ func applyFileConfig(config *config.AgentConfig) {
 	if FlagKey == "" && config.Key != "" {
 		FlagKey = config.Key
 	}
+	if !FlagGRPC && config.UseGRPC {
+		FlagGRPC = config.UseGRPC
+	}
+	if FlagGRPCAddress == "localhost:3200" && config.GRPCAddress != "" {
+		FlagGRPCAddress = config.GRPCAddress
+	}
 }
 
 func readEnvVars() {
@@ -155,6 +137,18 @@ func readEnvVars() {
 	if envConfigFile, exists := os.LookupEnv("CONFIG"); exists {
 		FlagConfigFile = envConfigFile
 	}
+
+	if envUseGRPC, exists := os.LookupEnv("USE_GRPC"); exists {
+		if useGRPC, err := strconv.ParseBool(envUseGRPC); err == nil {
+			FlagGRPC = useGRPC
+		} else {
+			zap.L().Error("Failed to parse USE_GRPC", zap.Error(err))
+		}
+	}
+
+	if envGRPCAddress, exists := os.LookupEnv("GRPC_ADDRESS"); exists {
+		FlagGRPCAddress = envGRPCAddress
+	}
 }
 
 func validateAndLogFlags() {
@@ -178,5 +172,7 @@ func validateAndLogFlags() {
 		zap.String("crypto_key", FlagCryptoKey),
 		zap.String("key", config.MaskSensitive(FlagKey)),
 		zap.String("config_file", FlagConfigFile),
+		zap.Bool("use_grpc", FlagGRPC),
+		zap.String("grpc_address", FlagGRPCAddress),
 	)
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -43,44 +44,28 @@ func main() {
 
 	flags.ParseFlags()
 
-	if flags.FlagCryptoKey != "" {
-		logger.Info("Initializing decryption", zap.String("private_key", flags.FlagCryptoKey))
-
-		privateKey, err := crypto.LoadPrivateKey(flags.FlagCryptoKey)
-		if err != nil {
-			logger.Error("Failed to load private key",
-				zap.String("path", flags.FlagCryptoKey),
-				zap.Error(err))
-			os.Exit(1)
-		}
-
-		services.InitDecryption(privateKey)
-		logger.Info("Decryption initialized successfully")
-	} else {
-		logger.Info("Decryption disabled - no crypto key provided")
-	}
-
-	r := api.InitRouter()
-
 	var storageType string
-
 	if flags.FlagDatabaseDSN == "" {
 		storageType = "memory"
 	} else {
 		storageType = "database"
 	}
 
-	storage.InitStorage(storageType)
-	logger.Info("Storage type: ", zap.String("storageType", storageType))
+	metricStorage := storage.NewStorage(storageType)
+	if metricStorage == nil {
+		logger.Fatal("Failed to create storage", zap.String("type", storageType))
+	}
+	defer metricStorage.Close()
 
-	if storageType == "memory" {
-		if flags.FlagRestore {
-			err := storage.LoadFromFile(storage.MetricStorage, flags.FlagFileStoragePath)
-			if err != nil {
-				logger.Warn("Error read from file: ", zap.Error(err))
-			}
+	logger.Info("Storage initialized", zap.String("storageType", storageType))
+
+	if _, ok := metricStorage.(*storage.MemStorage); ok && flags.FlagRestore {
+		if err := storage.LoadFromFile(metricStorage, flags.FlagFileStoragePath); err != nil {
+			logger.Warn("Error reading from file", zap.Error(err))
 		}
+	}
 
+	if _, ok := metricStorage.(*storage.MemStorage); ok {
 		storeInterval := time.Second * time.Duration(flags.FlagStoreInterval)
 		if flags.FlagStoreInterval > 0 {
 			ticker := time.NewTicker(storeInterval)
@@ -90,7 +75,9 @@ func main() {
 				for {
 					select {
 					case <-ticker.C:
-						storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath)
+						if err := storage.SaveToFile(metricStorage, flags.FlagFileStoragePath); err != nil {
+							logger.Error("Error saving data to file", zap.Error(err))
+						}
 					case <-ctx.Done():
 						return
 					}
@@ -99,7 +86,35 @@ func main() {
 		}
 	}
 
-	defer storage.MetricStorage.Close()
+	var privateKey *rsa.PrivateKey
+	if flags.FlagCryptoKey != "" {
+		logger.Info("Initializing decryption", zap.String("private_key", flags.FlagCryptoKey))
+
+		privateKey, err = crypto.LoadPrivateKey(flags.FlagCryptoKey)
+		if err != nil {
+			logger.Error("Failed to load private key",
+				zap.String("path", flags.FlagCryptoKey),
+				zap.Error(err))
+			os.Exit(1)
+		}
+		logger.Info("Decryption initialized successfully")
+	} else {
+		logger.Info("Decryption disabled - no crypto key provided")
+	}
+
+	serviceHandler := services.NewServiceHandler(metricStorage, privateKey, flags.FlagKey)
+
+	apiInstance := api.NewAPI(serviceHandler)
+
+	r := apiInstance.InitRouter()
+
+	if flags.FlagGRPCAddress != "" {
+		if err := services.InitGRPCServer(privateKey, flags.FlagKey, metricStorage); err != nil {
+			logger.Error("Failed to start gRPC server", zap.Error(err))
+			os.Exit(1)
+		}
+		defer services.StopGRPCServer()
+	}
 
 	server := &http.Server{
 		Addr:    flags.FlagRunAddr,
@@ -114,15 +129,19 @@ func main() {
 
 	logger.Info("Server is running", zap.String("address", flags.FlagRunAddr))
 
+	if flags.FlagGRPCAddress != "" {
+		logger.Info("gRPC server is running", zap.String("address", flags.FlagGRPCAddress))
+	}
+
 	<-ctx.Done()
 	logger.Info("Shutting down server gracefully...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if storageType == "memory" {
+	if _, ok := metricStorage.(*storage.MemStorage); ok {
 		logger.Info("Saving data to file before shutdown...")
-		if err := storage.SaveToFile(storage.MetricStorage, flags.FlagFileStoragePath); err != nil {
+		if err := storage.SaveToFile(metricStorage, flags.FlagFileStoragePath); err != nil {
 			logger.Error("Error saving data to file", zap.Error(err))
 		}
 	}

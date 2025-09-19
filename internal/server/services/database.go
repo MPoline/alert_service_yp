@@ -27,7 +27,7 @@ import (
 // Пример использования:
 //  router := gin.Default()
 //  router.GET("/ping", services.CheckDBConnection)
-func CheckDBConnection(c *gin.Context) {
+func (h *ServiceHandler) CheckDBConnection(c *gin.Context) {
 	db, err := database.OpenDBConnection()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Error opening database"})

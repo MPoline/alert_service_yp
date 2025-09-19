@@ -41,6 +41,15 @@ var (
 	FlagCryptoKey string
 
 	FlagConfigFile string
+
+	// FlagTrustedSubnet - CIDR подсеть доверенных IP адресов (флаг -t, переменная TRUSTED_SUBNET)
+	FlagTrustedSubnet string
+
+	// FlagGRPC - использовать gRPC вместо HTTP (флаг -grpc, переменная USE_GRPC)
+	FlagGRPC bool
+
+	// FlagGRPCAddress - адрес gRPC сервера (флаг -grpc-address, переменная GRPC_ADDRESS)
+	FlagGRPCAddress string
 )
 
 // ParseFlags обрабатывает аргументы командной строки и переменные окружения.
@@ -55,6 +64,7 @@ var (
 //	-d : строка подключения к БД (по умолчанию "")
 //	-k : ключ для подписи (по умолчанию "+randomSrting+")
 //	-с : ассиметричное шифрование (по умолчанию не используется)
+//	-t : доверенная подсеть в формате CIDR (по умолчанию "")
 //
 // Пример использования:
 //
@@ -71,6 +81,9 @@ func ParseFlags() {
 	flag.StringVar(&FlagCryptoKey, "crypto-key", "", "path to file with private key for encryption")
 	flag.StringVar(&FlagConfigFile, "config", "", "path to configuration file")
 	flag.StringVar(&FlagConfigFile, "c", "", "path to configuration file (shorthand)")
+	flag.StringVar(&FlagTrustedSubnet, "t", "", "trusted subnet in CIDR format")
+	flag.BoolVar(&FlagGRPC, "grpc", false, "use gRPC instead of HTTP")
+	flag.StringVar(&FlagGRPCAddress, "grpc-address", ":3200", "gRPC server address")
 
 	flag.Parse()
 
@@ -117,6 +130,17 @@ func applyFileConfig(config *config.ServerConfig) {
 	if FlagCryptoKey == "" && config.CryptoKey != "" {
 		FlagCryptoKey = config.CryptoKey
 	}
+
+	if FlagTrustedSubnet == "" && config.TrustedSubnet != "" {
+		FlagTrustedSubnet = config.TrustedSubnet
+	}
+
+	if !FlagGRPC && config.UseGRPC {
+		FlagGRPC = config.UseGRPC
+	}
+	if FlagGRPCAddress == ":3200" && config.GRPCAddress != "" {
+		FlagGRPCAddress = config.GRPCAddress
+	}
 }
 
 func readEnvVars() {
@@ -159,6 +183,22 @@ func readEnvVars() {
 	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
 		FlagConfigFile = envConfigFile
 	}
+
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		FlagTrustedSubnet = envTrustedSubnet
+	}
+
+	if envUseGRPC := os.Getenv("USE_GRPC"); envUseGRPC != "" {
+		if useGRPC, err := strconv.ParseBool(envUseGRPC); err == nil {
+			FlagGRPC = useGRPC
+		} else {
+			zap.L().Error("Failed to parse USE_GRPC", zap.Error(err))
+		}
+	}
+
+	if envGRPCAddress := os.Getenv("GRPC_ADDRESS"); envGRPCAddress != "" {
+		FlagGRPCAddress = envGRPCAddress
+	}
 }
 
 func validateAndLogFlags() {
@@ -178,5 +218,8 @@ func validateAndLogFlags() {
 		zap.String("key", config.MaskSensitive(FlagKey)),
 		zap.String("crypto_key", FlagCryptoKey),
 		zap.String("config_file", FlagConfigFile),
+		zap.String("trusted_subnet", FlagTrustedSubnet),
+		zap.Bool("use_grpc", FlagGRPC),
+		zap.String("grpc_address", FlagGRPCAddress),
 	)
 }

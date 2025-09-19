@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "./internal/proto";
+
+service MetricsService {
+  rpc UpdateMetrics(UpdateMetricsRequest) returns (UpdateMetricsResponse);
+  rpc UpdateMetric(UpdateMetricRequest) returns (UpdateMetricResponse);
+  rpc Ping(PingRequest) returns (PingResponse); 
+}
+
+message Metric {
+  string id = 1;
+  string mtype = 2;
+  int64 delta = 3;
+  double value = 4;
+  string hash = 5;
+}
+
+message UpdateMetricsRequest {
+  repeated Metric metrics = 1;
+}
+
+message UpdateMetricsResponse {
+  string error = 1;
+}
+
+message UpdateMetricRequest {
+  Metric metric = 1;
+}
+
+message UpdateMetricResponse {
+  string error = 1;
+}
+
+message PingRequest {}
+message PingResponse {
+    string status = 1;
+}

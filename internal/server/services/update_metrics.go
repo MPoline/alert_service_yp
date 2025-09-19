@@ -13,8 +13,6 @@ import (
 
 	"github.com/MPoline/alert_service_yp/internal/hasher"
 	"github.com/MPoline/alert_service_yp/internal/models"
-	"github.com/MPoline/alert_service_yp/internal/server/flags"
-	"github.com/MPoline/alert_service_yp/internal/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -61,8 +59,7 @@ import (
 //
 //	Ответ:
 //	  {"id":"alloc","type":"gauge","value":123.45}
-func UpdateMetricFromJSON(c *gin.Context) {
-
+func (h *ServiceHandler) UpdateMetricFromJSON(c *gin.Context) {
 	var (
 		req models.Metrics
 	)
@@ -81,8 +78,8 @@ func UpdateMetricFromJSON(c *gin.Context) {
 		return
 	}
 
-	h := hasher.InitHasher("SHA256")
-	hash, err := h.CalculateHash(data, []byte(flags.FlagKey))
+	hasherInstance := hasher.InitHasher("SHA256")
+	hash, err := hasherInstance.CalculateHash(data, []byte(h.key))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Failed calculate sha256"})
 		zap.L().Error("Failed calculate sha256: ", zap.Error(err))
@@ -98,11 +95,11 @@ func UpdateMetricFromJSON(c *gin.Context) {
 
 	if !(hmac.Equal(hash, hashFromHeader)) {
 		c.JSON(http.StatusBadRequest, gin.H{"Error": "Signature hash does not match"})
-		zap.L().Error("Signature hash does not match: ", zap.Error(err))
+		zap.L().Error("Signature hash does not match")
 		return
 	}
 
-	err = storage.MetricStorage.UpdateMetric(ctx, req)
+	err = h.storage.UpdateMetric(ctx, req)
 
 	if err != nil {
 		if errors.Is(err, models.ErrInvalidMetricName) || errors.Is(err, models.ErrInvalidMetricType) {
@@ -158,8 +155,7 @@ func UpdateMetricFromJSON(c *gin.Context) {
 //
 //	Запрос:
 //	  POST /update/counter/pollCount/1
-func UpdateMetricFromURL(c *gin.Context) {
-
+func (h *ServiceHandler) UpdateMetricFromURL(c *gin.Context) {
 	var req models.Metrics
 
 	metricType := c.Param("type")
@@ -212,7 +208,7 @@ func UpdateMetricFromURL(c *gin.Context) {
 		}
 	}
 
-	err := storage.MetricStorage.UpdateMetric(ctx, req)
+	err := h.storage.UpdateMetric(ctx, req)
 	if err != nil {
 		if errors.Is(err, models.ErrInvalidMetricType) {
 			c.JSON(http.StatusBadRequest, gin.H{"Error": "InvalidMetricType"})

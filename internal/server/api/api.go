@@ -1,13 +1,6 @@
-// Package api предоставляет HTTP API сервера метрик.
-//
-// Пакет содержит:
-// - Инициализацию роутера Gin
-// - Регистрацию middleware
-// - Маршрутизацию запросов
 package api
 
 import (
-	"crypto/rsa"
 	"fmt"
 	"os"
 
@@ -17,55 +10,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// InitRouter создает и настраивает роутер Gin с middleware и обработчиками запросов.
-//
-// Возвращает:
-//   - *gin.Engine: настроенный роутер
-//
-// Регистрирует следующие эндпоинты:
-//   - GET  /ping          - проверка подключения к БД
-//   - GET  /              - получение всех метрик
-//   - GET  /value/        - получение метрики в формате JSON
-//   - POST /update/       - обновление метрики в формате JSON
-//   - POST /updates/      - массовое обновление метрик
-//   - GET  /value/:type/:name - получение метрики через URL
-//   - POST /update/:type/:name/:value - обновление метрики через URL
-//
-// Пример использования:
-//
-//	router := api.InitRouter()
-//	router.Run(":8080")
-func InitRouter() *gin.Engine {
+type API struct {
+	serviceHandler *services.ServiceHandler
+}
+
+func NewAPI(serviceHandler *services.ServiceHandler) *API {
+	return &API{
+		serviceHandler: serviceHandler,
+	}
+}
+
+func (a *API) InitRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	registerMiddlewares(router)
-
-	router.GET("/ping", services.CheckDBConnection)
-	router.GET("/", services.GetAllMetrics)
-	router.GET("/value/", services.GetMetricFromJSON)
-	router.POST("/update/", services.UpdateMetricFromJSON)
-	router.POST("/updates/", services.UpdateSliceOfMetrics)
-	router.GET("/value/:type/:name", services.GetMetricFromURL)
-	router.POST("/update/:type/:name/:value", services.UpdateMetricFromURL)
+	a.registerMiddlewares(router)
+	a.registerRoutes(router)
 
 	return router
 }
 
-// InitDecryption инициализирует расшифровку с предоставленным приватным ключом
-func InitDecryption(privateKey *rsa.PrivateKey) {
-	services.InitDecryption(privateKey)
-}
-
-// registerMiddlewares регистрирует middleware для роутера:
-//   - GZip сжатие ответов
-//   - GZip распаковка запросов
-//   - Логирование входящих запросов
-//   - Логирование исходящих ответов
-//
-// Параметры:
-//   - r *gin.Engine: роутер Gin
-func registerMiddlewares(r *gin.Engine) {
+func (a *API) registerMiddlewares(r *gin.Engine) {
 	logger, err := logging.InitLog()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error initializing logger:", err)
@@ -77,4 +42,19 @@ func registerMiddlewares(r *gin.Engine) {
 	r.Use(middlewares.GZipCompress())
 	r.Use(middlewares.RequestLogger(logger))
 	r.Use(middlewares.ResponseLogger(logger))
+}
+
+func (a *API) registerRoutes(r *gin.Engine) {
+	r.GET("/ping", a.serviceHandler.CheckDBConnection)
+	r.GET("/", a.serviceHandler.GetAllMetrics)
+	r.GET("/value/", a.serviceHandler.GetMetricFromJSON)
+	r.GET("/value/:type/:name", a.serviceHandler.GetMetricFromURL)
+
+	updateGroup := r.Group("/")
+	updateGroup.Use(middlewares.TrustedSubnetMiddleware())
+	{
+		updateGroup.POST("/update/", a.serviceHandler.UpdateMetricFromJSON)
+		updateGroup.POST("/updates/", a.serviceHandler.UpdateSliceOfMetrics)
+		updateGroup.POST("/update/:type/:name/:value", a.serviceHandler.UpdateMetricFromURL)
+	}
 }

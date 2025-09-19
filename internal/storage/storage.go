@@ -6,8 +6,6 @@ import (
 	"github.com/MPoline/alert_service_yp/internal/models"
 )
 
-var MetricStorage Storage
-
 type Storage interface {
 	GetAllMetrics(ctx context.Context) ([]models.Metrics, error)
 	GetMetric(ctx context.Context, metricType string, metricName string) (models.Metrics, error)
@@ -16,27 +14,30 @@ type Storage interface {
 	Close()
 }
 
-func InitStorage(storageType string) {
-	if storageType == "memory" {
-		MetricStorage = NewMemStorage()
-		return
-	}
-	if storageType == "database" {
-		MetricStorage = NewDBStorage()
-		return
+// NewStorage создает и возвращает экземпляр хранилища указанного типа
+func NewStorage(storageType string) Storage {
+	switch storageType {
+	case "memory":
+		return NewMemStorage()
+	case "database":
+		return NewDBStorage()
+	default:
+		return nil
 	}
 }
 
+// SaveToFile сохраняет данные в файл (только для MemStorage)
 func SaveToFile(s Storage, filePath string) error {
 	if ms, ok := s.(*MemStorage); ok {
-		ms.SaveToFile(filePath)
+		return ms.SaveToFile(filePath)
 	}
 	return nil
 }
 
+// LoadFromFile загружает данные из файла (только для MemStorage)
 func LoadFromFile(s Storage, filePath string) error {
 	if ms, ok := s.(*MemStorage); ok {
-		ms.LoadFromFile(filePath)
+		return ms.LoadFromFile(filePath)
 	}
 	return nil
 }
